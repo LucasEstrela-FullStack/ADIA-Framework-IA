@@ -1,0 +1,114 @@
+# ADIA-Framework / CognitiveLoop
+# Prototipo local de pesquisa em aprendizagem assistida por IA.
+# Regra geral: nenhum dado de estudante entra no controle de versao.
+
+# === Dados de estudante e identificacao ===
+# O vinculo entre pseudonimo e identidade nunca deve ser versionado.
+identidades*
+pseudonimos*
+participantes.*
+consentimentos/
+
+# Exportacoes de coleta
+exports/
+exportacoes/
+data/sessoes/
+data/estudantes/
+*.export.csv
+
+# === Banco de dados local ===
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# === Pesos de modelos e indices vetoriais ===
+*.gguf
+*.ggml
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.faiss
+ml/checkpoints/
+ml/runs/
+ml/modelos/
+data/indice_rag/
+data/embeddings/
+.chroma/
+chroma_db/
+
+# === Python (backend/ e ml/) ===
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# === Node (frontend/) ===
+node_modules/
+.pnpm-store/
+frontend/dist/
+frontend/build/
+.vite/
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Segredos e variaveis de ambiente ===
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# === Logs e temporarios ===
+logs/
+*.log
+tmp/
+temp/
+.cache/
+
+# === Editores e sistema operacional ===
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# === Mantidos de proposito no repositorio ===
+# Fixacao de versao e arquivos de bloqueio nao devem ser ignorados.
+!.gitignore
+!.gitkeep
+!.python-version
+!.nvmrc
+!pyproject.toml
+!uv.lock
+!package.json
+!package-lock.json
+!pnpm-lock.yaml
+
+# === Artefatos locais do Kiro (specs, steering, hooks) ===
+# Mantidos fora do controle de versao por decisao do autor.
+.kiro/
