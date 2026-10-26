@@ -58,12 +58,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "[2/8] mypy --strict -- camada 2: fronteira de tipo, sem Any no lado puro"
-uv run mypy --strict backend/adia
+uv run python -m mypy --strict backend/adia backend/tests
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "[3/8] lint-imports -- camada 1: contratos de camada e de proibicao"
-uv run lint-imports --config backend/.importlinter
+uv run python -c "import sys; from importlinter.cli import lint_imports; sys.exit(lint_imports(config_filename='backend/.importlinter', no_logo=True))"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""

@@ -1,0 +1,32 @@
+# Normalizacao de fim de linha.
+#
+# core.autocrlf = true converteria para CRLF na copia de trabalho, e tres coisas deste
+# projeto dependem de LF:
+#   - o serializador canonico de itens (D12) exige ida e volta identica byte a byte com
+#     fim de linha LF, que e exatamente o que a Propriedade 30 verifica;
+#   - os scripts .ps1 sao ASCII puro e sem BOM por convencao;
+#   - os arquivos .excalidraw sao JSON de uma unica linha.
+#
+# eol=lf fixa LF tambem na copia de trabalho, nao so no repositorio.
+
+* text=auto eol=lf
+
+# Binarios: nenhuma conversao.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.pdf binary
+*.ico binary
+*.gguf binary
+*.ggml binary
+*.safetensors binary
+*.onnx binary
+*.pt binary
+*.pth binary
+*.ckpt binary
+*.faiss binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

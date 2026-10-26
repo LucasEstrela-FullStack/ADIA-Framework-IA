@@ -588,6 +588,58 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   seus padrões podem mudar; entrar qualquer dependência da Fase 6; e a tarefa 11.1, que
   acrescenta o lado Node ao fecho e com ele um segundo bloqueio a triar.
 
+## DO-18 — Fim de linha LF fixado por `.gitattributes`
+
+- **Data:** 2026-10-25
+- **Decisão:** `.gitattributes` com `* text=auto eol=lf` fixa LF também na cópia de
+  trabalho, e não apenas no repositório. Formatos binários recebem `binary` para escapar
+  de qualquer conversão.
+- **Justificativa:** `core.autocrlf` está como `true` nesta máquina, o que converteria
+  todo arquivo de texto para CRLF ao extrair. Três coisas do projeto dependem de LF: o
+  serializador canônico de itens (D12) exige ida e volta idêntica byte a byte com fim de
+  linha LF, que é exatamente o que a Propriedade 30 verifica; os scripts `.ps1` são ASCII
+  puro e sem BOM por convenção; e os arquivos `.excalidraw` são JSON de uma única linha.
+  Sem a fixação, a Propriedade 30 reprovaria por um motivo sem relação nenhuma com o
+  serializador, e o tempo de diagnóstico seria gasto no lugar errado.
+- **Origem:** D12; design §5 (Propriedade 30) e §6.3.
+- **Revalidação:** nenhum gatilho previsto.
+
+## DO-19 — Caminho único do vínculo entre pseudônimo e identidade
+
+- **Data:** 2026-10-25
+- **Decisão:** o vínculo entre pseudônimo e identidade vive em **`data/identidade/`**.
+  Tanto `data/identidade/` quanto `data/privado/` entram no `.gitignore` como diretórios
+  inteiros, sem exceção de `.gitkeep`: o diretório não é rastreado, e não existir no git é
+  a propriedade desejada.
+- **Justificativa:** o design nomeia dois caminhos diferentes para o mesmo artefato — a
+  seção de arquitetura diz `data/identidade/` e a de modelos de dados diz
+  `data/privado/vinculo-identidade.csv`. Dois caminhos para o mesmo dado significam que a
+  proteção cobriria um e deixaria o outro aberto. Adotado `data/identidade/`, que é o que
+  a árvore de diretórios da tarefa 1.1 criou; `data/privado/` fica igualmente ignorado
+  para que a ambiguidade do design não se converta em vazamento. Antes desta decisão
+  nenhum padrão do `.gitignore` cobria o caminho, de modo que o primeiro arquivo colocado
+  ali seria rastreado — e é o único artefato do projeto cujo vazamento é irreversível.
+- **Origem:** R25.4, R25.5; design §2.3 e §4.6, que divergem entre si.
+- **Revalidação:** a tarefa 8.11, que implementa a separação de identidade, deve confirmar
+  o caminho adotado e corrigir a referência divergente no design.
+
+## DO-20 — O portão invoca `mypy` e `import-linter` como módulo
+
+- **Data:** 2026-10-25
+- **Decisão:** `scripts/verificar.ps1` chama `uv run python -m mypy` e invoca o
+  `import-linter` por `importlinter.cli.lint_imports`, em vez dos atalhos `mypy.exe` e
+  `lint-imports.exe` de `.venv/Scripts`.
+- **Justificativa:** nesta máquina os dois atalhos são bloqueados por política de Controle
+  de Aplicativos do Windows (`os error 4551`), enquanto `ruff.exe`, `pytest.exe` e
+  `adia.exe` passam. Invocados como módulo, ambos funcionam e produzem o mesmo resultado:
+  `mypy --strict` sem erro em 30 arquivos e 5 contratos mantidos. A forma por módulo é
+  também mais portátil, porque não depende de atalho gerado na instalação.
+- **Origem:** design §6.1 e §6.4; restrição do ambiente auditado.
+- **Revalidação:** se a política deixar de bloquear os atalhos, a forma direta volta a ser
+  válida, mas não há ganho em trocar.
+
+---
+
 ---
 
 ## Pendências

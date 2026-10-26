@@ -115,3 +115,9 @@ $RECYCLE.BIN/
 # === Artefatos locais do Kiro (specs, steering, hooks) ===
 # Mantidos fora do controle de versao por decisao do autor.
 .kiro/
+
+
+# === Vinculo entre pseudonimo e identidade (R25.4) ===
+# Unico artefato do projeto cujo vazamento e irreversivel: nada daqui entra no git.
+data/identidade/
+data/privado/
