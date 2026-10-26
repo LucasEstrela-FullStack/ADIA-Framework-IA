@@ -1,0 +1,96 @@
+# Contrato de import estático — camada 1 das três que verificam o isolamento da IA
+# (design §6.4; a tabela das três camadas está em §2.1).
+#
+# Invocado de duas formas, de propósito:
+#   - `uv run lint-imports --config backend/.importlinter`, no portão local (§6.1);
+#   - `backend/tests/conjuntos/test_contratos_de_import.py`, para que uma execução de
+#     `pytest` isolada não perca a verificação.
+#
+# O que esta camada pega sozinha: a refatoração que acrescenta `from adia.ia... import`
+# dentro de `adia/nucleo/`, e a dependência **indireta** por cadeia de três ou quatro
+# módulos, que nenhuma revisão humana rastreia. O que ela não vê: travessia em tempo de
+# execução — função injetada no núcleo, `importlib.import_module` por nome, dependência
+# resolvida pelo FastAPI, `import` dentro do corpo de uma função. Essas ficam para a
+# fronteira de tipo (camada 2) e para a fixture `ollama_proibido` (camada 3).
+
+[importlinter]
+root_packages =
+    adia
+    ml
+# `include_external_packages` é o que permite proibir `httpx`, `socket` e `torch`, que são
+# as formas de contornar a proibição de `adia.ia` sem nunca escrever `adia.ia` (§6.4).
+include_external_packages = True
+
+# UM DESVIO DO TEXTO DE §6.4, E A RAZÃO DELE. O design escreve `urllib.request` nas listas
+# de proibição; o `import-linter` 2.15 recusa a configuração com "subpackages of external
+# packages are not valid", porque o `grimp` reduz todo pacote externo ao nome de topo. A
+# proibição aqui é de `urllib` inteiro, que é estritamente mais forte: cobre
+# `urllib.request` e também `urllib.error` e `urllib.parse`. Nenhuma das três tem uso
+# legítimo no lado puro — o núcleo não fala HTTP e a normalização da guarda é NFKC, não
+# decodificação de URL —, então a diferença não custa nada e o contrato passa a carregar.
+
+[importlinter:contract:camadas]
+name = Camadas: orquestração acima de IA, guarda e núcleo
+type = layers
+# O separador `|` entre `adia.ia` e `adia.guarda` declara os dois como irmãos
+# **independentes**: nenhum importa o outro, nem direta nem indiretamente. É a tradução do
+# ponto 3 de §2.1 — a única travessia permitida é de cima para baixo, pelo
+# `Orquestrador_de_Dicas` — e tem consequência concreta no aborto incremental de §3.7: o
+# detector barato que roda a cada frase é injetado pelo orquestrador como função de
+# retorno, não importado pela camada de IA.
+layers =
+    adia.api
+    adia.orquestracao
+    adia.ia | adia.guarda
+    adia.nucleo
+    adia.tipos
+
+[importlinter:contract:nucleo-puro]
+name = D1: adia.nucleo não alcança a IA nem a rede nem o relógio (R30.3)
+type = forbidden
+source_modules =
+    adia.nucleo
+forbidden_modules =
+    adia.ia
+    ollama
+    httpx
+    requests
+    urllib
+    socket
+    time
+    uuid
+    secrets
+
+[importlinter:contract:guarda-pura]
+name = D3: adia.guarda não alcança a IA nem a rede (R7.2)
+type = forbidden
+# `time` aparece em `nucleo-puro` e **não** aqui, e isso não é descuido: a guarda mede o
+# orçamento de 2 s com `time.monotonic()` (§3.11), enquanto o núcleo recebe o relógio
+# injetado. A pureza da guarda é quanto à IA e à rede, não quanto ao relógio monotônico.
+source_modules =
+    adia.guarda
+forbidden_modules =
+    adia.ia
+    ollama
+    httpx
+    requests
+    urllib
+    socket
+
+[importlinter:contract:roteador-nao-alcanca-a-regra]
+name = R21.5: o roteador não alcança regulação nem métricas
+type = forbidden
+source_modules =
+    adia.ia.roteador
+forbidden_modules =
+    adia.nucleo.regulacao
+    adia.nucleo.metricas
+
+[importlinter:contract:torch-fora-do-servidor]
+name = torch só em ml/ (§3.17, orçamento de memória de §2.5)
+type = forbidden
+source_modules =
+    adia
+forbidden_modules =
+    torch
+    ml
