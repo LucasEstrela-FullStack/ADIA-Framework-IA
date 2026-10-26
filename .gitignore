@@ -55,6 +55,9 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+# O grimp ja escreve um .gitignore dentro do proprio cache; a linha abaixo esta aqui
+# para que a lista de caches do portao local fique completa em um so lugar.
+.import_linter_cache/
 .hypothesis/
 .coverage
 .coverage.*
