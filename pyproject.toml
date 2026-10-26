@@ -1,0 +1,151 @@
+[project]
+name = "adia"
+version = "0.1.0"
+description = "Protótipo ADIA-CognitiveLoop: assistência decremental adaptativa em aprendizagem apoiada por IA"
+readme = "README.md"
+authors = [{ name = "Lucas Abreu Estrela" }]
+requires-python = ">=3.13,<3.14"
+
+# Versão de Python fixada por D6 (docs/decisoes.md): 3.13, uma versão menor abaixo
+# do 3.14 indicado no README.md. O arquivo .python-version declara a mesma versão.
+#
+# As versões exatas de dependências diretas e transitivas ficam em uv.lock (R1.6).
+# Aqui ficam apenas os intervalos: piso na versão auditada, teto na próxima versão
+# maior, para que uma resolução nova não atravesse uma fronteira incompatível.
+dependencies = [
+    # API local (design §3.13): FastAPI com Pydantic v2 sobre Uvicorn, bind em 127.0.0.1.
+    "fastapi>=0.162.0,<1",
+    "pydantic>=2.14.1,<3",
+    "uvicorn>=0.54.0,<1",
+    # Cliente do serviço de inferência local (design §3.12). O transporte é injetável:
+    # é o que a fixture `ollama_proibido` substitui por dublê (design §6.4).
+    "httpx>=0.28.1,<1",
+    # Serializador canônico dos itens em TOML (D12). A leitura usa `tomllib`, da
+    # biblioteca padrão; só a escrita precisa de biblioteca externa.
+    "tomli-w>=1.2.0,<2",
+    # Busca vetorial exaustiva do RAG (D13) e aritmética das métricas.
+    "numpy>=2.5.4,<3",
+    # Classificador roteador: TF-IDF de n-gramas + regressão logística (design §3.8),
+    # serializado com joblib e identificado por hash.
+    "scikit-learn>=1.9.1,<2",
+    "joblib>=1.6.0,<2",
+]
+
+[project.optional-dependencies]
+# Grupo opcional de `ml/`. Fica fora da sincronização padrão de propósito: `torch` é a
+# dependência mais pesada do projeto (design §2.5, orçamento de disco) e o processo da
+# API nunca o importa — o contrato `torch-fora-do-servidor` do import-linter proíbe
+# (design §6.4) e o DKT roda como CLI separado. Instalação: `uv sync --extra ml`.
+ml = [
+    # Modelo_DKT: LSTM em CPU, sem CUDA (R28.1, R28.2, R24.7). Em Windows, a roda
+    # publicada no PyPI já é a variante de CPU.
+    "torch>=2.14.1,<3",
+]
+
+[dependency-groups]
+# Ferramentas do portão local (design §6.1 e §6.2). As três últimas não são ferramentas
+# de estilo nesta spec: `import-linter` e `mypy` são duas das três camadas que sustentam
+# a fronteira determinística, e o `ruff` carrega as proibições de API que o mypy não
+# expressa (design §6.4).
+dev = [
+    "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
+    "hypothesis>=6.170.9,<7",
+    "import-linter>=2.15,<3",
+    "mypy>=1.20.2,<2",
+    # Teto na próxima versão menor: o `ruff` ainda é 0.x e muda comportamento de regra
+    # entre menores, e aqui ele carrega proibições de API que o portão depende (§6.4).
+    "ruff>=0.17.2,<0.18",
+]
+
+[project.scripts]
+# Ponto de entrada único da CLI (design §3.18). A função `principal` despacha os
+# subcomandos `doutor`, `migrar`, `itens`, `guarda`, `indexar`, `replay`, `exportar`,
+# `excluir-dados` e `benchmark`; é implementada na tarefa 1.3.
+adia = "adia.cli:principal"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# O pacote vive em backend/adia/ e é distribuído como `adia` (design §2.3).
+packages = ["backend/adia"]
+
+[tool.uv]
+# O protótipo é desenvolvido e auditado em Windows (design §2.5; os scripts de apoio são
+# .ps1). Restringir o ambiente resolvido mantém o bloqueio fiel a essa plataforma e
+# impede que a resolução de `torch` arraste as rodas de CUDA, que R24.7 descarta.
+environments = ["sys_platform == 'win32'"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "ml/tests"]
+addopts = "-q --strict-markers"
+markers = [
+  "ollama: exige o serviço de inferência local em execução; não roda no portão",
+  "desempenho: mede orçamento de §2.5; só vale no perfil de hardware auditado",
+  "lento: acima de 5 s por teste",
+]
+
+[tool.mypy]
+# Camada 2 das três que verificam o isolamento da IA (design §6.4). A assinatura de
+# `decidir` admite apenas tipos declarados em `adia.tipos` e em `adia.nucleo`; `strict`
+# é o que transforma isso em barreira, e não em convenção.
+#
+# Dois mecanismos que vêm junto com `strict` e que o design usa de propósito:
+#   - `no_implicit_reexport` impede que `adia.nucleo.tipos` reexporte, de forma
+#     transitiva, um tipo originado em `adia.ia`;
+#   - `warn_unused_ignores` é o que faz o teste de tipo negativo de
+#     `backend/tests/conjuntos/tipos_fronteira.py` falhar no dia em que a fronteira
+#     afrouxar: o erro desaparece, o `type: ignore` fica sem uso e o mypy acusa.
+python_version = "3.13"
+strict = true
+warn_unreachable = true
+# O pacote vive em backend/adia/ (§2.3). Declarar a raiz aqui mantém o nome de módulo
+# igual a `adia.*` independentemente de como o mypy é invocado, o que é o que faz os
+# sobrescritos abaixo casarem.
+mypy_path = "backend"
+
+[[tool.mypy.overrides]]
+# `Any` é a única maneira de um objeto da camada de IA atravessar a assinatura sem o
+# verificador reclamar; proibir `Any` explícito nesses dois pacotes fecha a porta.
+# O padrão `x.*` casa também o próprio `x`, então `adia.nucleo` e `adia.guarda` estão
+# incluídos, não só os submódulos.
+module = ["adia.nucleo.*", "adia.guarda.*"]
+disallow_any_explicit = true
+disallow_any_decorated = true
+
+[tool.ruff]
+# O `ruff` não é ferramenta de estilo nesta spec: ele carrega as proibições de API que o
+# `mypy` não expressa (design §6.2) e fecha o laço da pureza do núcleo.
+#
+# A largura não é fixada pelo design. 120 é escolha deliberada: as mensagens do protótipo
+# são em pt-BR e os identificadores do domínio são longos (`tai_independente`,
+# `conjunto_verificacao`, `CODIGO_NAO_IMPLEMENTADO`), e um teto mais apertado forçaria
+# quebra no meio de literais de mensagem, que é onde a quebra atrapalha a leitura.
+line-length = 120
+src = ["backend", "ml"]
+
+[tool.ruff.lint]
+# `TID` é obrigatório: é a regra TID251 que aplica o `banned-api` abaixo, e ela não está
+# no conjunto padrão do ruff. Sem ela, as proibições de relógio seriam configuração
+# inerte. O resto é o mínimo para um código novo: erros reais (`E`, `F`, `W`), ordenação
+# de imports (`I`), modernização de sintaxe (`UP`) e armadilhas comuns (`B`).
+select = ["E", "W", "F", "I", "UP", "B", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# A proibição vale justamente onde o contrato de import não ajuda: `datetime` é um tipo
+# legítimo em `adia.nucleo`, e o que não pode é a leitura implícita do relógio.
+"datetime.datetime.now".msg = "Núcleo e guarda são puros: o relógio é injetado (§3.0)."
+"datetime.date.today".msg = "O relógio é injetado (§3.0)."
+
+[tool.ruff.lint.per-file-ignores]
+# A exceção por arquivo é a declaração de onde o relógio realmente existe. Os padrões do
+# design (§6.2) aparecem aqui na forma `**`, porque o `*` do ruff não atravessa separador
+# de diretório e deixaria `adia/api/rotas/` e `ml/dkt/` fora da exceção — justamente onde
+# o relógio é lido.
+"backend/adia/api/**" = ["TID251"]
+"backend/adia/ia/**" = ["TID251"]
+"backend/adia/orquestracao/**" = ["TID251"]
+"backend/adia/persistencia/**" = ["TID251"]
+"ml/**" = ["TID251"]
