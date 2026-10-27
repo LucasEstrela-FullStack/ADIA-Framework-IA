@@ -711,13 +711,21 @@ def test_mensagem_de_erro_nao_cita_conteudo_do_item(
     Mensagem de erro vai para o terminal de quem roda `adia itens validar`, para o log de
     subida da API e, no pior caso, para uma captura de tela em sala. Gabarito ali é vazamento
     por outro caminho — o mesmo que a `Guarda_de_Vazamento` fecha no texto da dica.
+
+    A afirmação é sobre `detalhe()`, e não sobre `mensagem`. A mensagem completa traz o
+    caminho do arquivo, que sob `tmp_path` inclui o número da sessão do pytest: um segredo
+    de um dígito casa com esse número por coincidência, e o teste reprovaria sobre o
+    caminho em vez de sobre o conteúdo — intermitência em cerca de uma execução em cinco
+    para o segredo `"7"`. Caminho e linha são estruturais e exigidos por R3.2; a
+    superfície de vazamento é `detalhe()`, e é sobre ela que o sigilo se afirma.
     """
     caminho = escrever(tmp_path, "quebrado.adia.toml", texto_do_item)
 
     erro = recusa(carregar([caminho]))
 
     assert erro.campo == campo
-    assert segredo not in erro.mensagem
+    assert str(caminho) in erro.mensagem
+    assert segredo not in erro.detalhe()
     if "repetido" in erro.mensagem:
         assert VALOR_OMITIDO in erro.mensagem
 
