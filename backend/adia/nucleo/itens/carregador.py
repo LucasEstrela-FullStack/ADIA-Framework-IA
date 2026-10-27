@@ -40,6 +40,38 @@ Três normalizações acontecem na leitura, e as três existem para a ida e volt
 coleções são conjuntos escritos como lista, logo são **ordenadas** e não admitem repetição;
 ``\\r\\n`` é normalizado para ``\\n`` antes de interpretar; e o banco publicado sai ordenado
 por identificador, independentemente da ordem dos arquivos recebidos.
+
+## A escrita: ``serializar_canonico``
+
+R3.5 é a metade difícil de R3: *serializar, interpretar e serializar de novo tem de produzir
+texto idêntico*. Nenhum escritor de TOML genérico garante isso, porque a escolha de estilo de
+cadeia, a ordem das chaves e a quebra de linha variam com a entrada. ``serializar_canonico``
+fixa **uma** forma por conteúdo, e é a conjunção destas sete regras que torna a segunda
+serialização idêntica à primeira (D12, §3.1):
+
+1. **ordem de chaves fixada pelo esquema** (``ORDEM_CANONICA_DE_ITEM``), não alfabética e não
+   a ordem de inserção do dicionário de entrada — ordem de inserção faria o texto depender de
+   como o objeto foi construído, que é justamente o que não deve aparecer no arquivo;
+2. **enunciado e dicas sempre em bloco** ``\"\"\"``, inclusive quando o texto tem uma linha só.
+   "Em bloco quando multilinha" seria duas formas para o mesmo conteúdo, e um enunciado que
+   perde a última quebra de linha mudaria de estilo de cadeia sem mudar de sentido;
+3. **coleções ordenadas e sem repetição**, no mesmo critério com que o leitor as lê — são
+   conjuntos escritos como lista, e a ordem em que alguém os escreveu não é conteúdo;
+4. **``LF`` e UTF-8 sem BOM**, em acordo com ``.gitattributes`` (``* text=auto eol=lf``) e com
+   a recusa de BOM na leitura;
+5. **``Decimal`` na forma canônica mais curta que preserva o valor**, em notação simples e
+   sempre entre aspas: ``Decimal("0.050")`` sai ``"0.05"``, e ``Decimal("1E+2")`` sai
+   ``"100"`` porque a gramática não admite expoente;
+6. **nenhuma linha em branco além das separadoras de tabela** — exatamente uma entre blocos,
+   nenhuma no começo, e o arquivo termina com uma única quebra de linha;
+7. **blocos em ordem estável**: itens por ``id``, relações pela tripla
+   ``(origem, destino, tipo)``, que é a mesma ordenação do banco publicado.
+
+``canonizar`` é a ponte entre a carga e o comando ``adia itens formatar``: valida o banco
+**inteiro** — as associações de R2.2 e R2.6 cruzam arquivos, e um arquivo isolado não é
+verificável — e devolve o texto canônico **de cada arquivo**, preservando a partição que o
+autor escolheu. Reescrever o banco num arquivo único passaria em R3.5 e destruiria a
+organização do conteúdo, que é o que R3 existe para proteger.
 """
 
 from __future__ import annotations
@@ -47,12 +79,14 @@ from __future__ import annotations
 import re
 import string
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from types import MappingProxyType
 from typing import Final, NoReturn
+
+import tomli_w
 
 from adia.nucleo.itens.erros import (
     ErroDeAssociacaoAusente,
@@ -125,6 +159,40 @@ CAMPOS_DE_ITEM: Final = (
 )
 
 CAMPOS_DE_RELACAO: Final = ("item_origem", "item_destino", "tipo")
+"""Campos de ``[[relacao]]``, já na ordem em que a gramática e a forma canônica os escrevem."""
+
+ORDEM_CANONICA_DE_ITEM: Final = (
+    "id",
+    "enunciado",
+    "habilidade_alvo",
+    "dificuldade",
+    "tamanho_max_resposta",
+    "tipo_gabarito",
+    "gabarito",
+    "tolerancia",
+    "unidade",
+    "sinonimos_unidade",
+    "variacoes_gabarito",
+    "termos_essenciais",
+    "incognita",
+    "etapas_permitidas",
+    "transferencia",
+)
+"""Ordem em que a forma canônica escreve os campos de ``[[item]]`` (§3.1, R3.5).
+
+É a ordem da tabela da seção 2 de ``docs/gramatica-itens.md``, e **não** é alfabética nem a
+ordem de inserção do dicionário de entrada. As duas alternativas foram descartadas por
+motivos diferentes: a alfabética separaria ``gabarito`` de ``tolerancia`` e ``unidade`` de
+``sinonimos_unidade``, que são os pares que um revisor lê juntos; a ordem de inserção faria o
+texto do arquivo depender de como o objeto foi construído em memória, o que é exatamente o
+que R3.5 proíbe. ``dicas`` não entra na lista porque é subtabela, escrita depois do bloco.
+"""
+
+TABELA_DE_DICAS_CANONICA: Final = f"{TABELA_DE_ITEM}.{TABELA_DE_DICAS}"
+"""Cabeçalho da subtabela de dicas, ``item.dicas``, montado uma vez."""
+
+FIM_DE_LINHA: Final = "\n"
+"""``LF``, em qualquer plataforma. O repositório declara ``* text=auto eol=lf``."""
 
 PADRAO_DE_IDENTIFICADOR: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 """Forma de ``id``, ``habilidade_alvo`` e ``incognita``: ASCII, sem espaço, até 64 caracteres.
@@ -1110,12 +1178,34 @@ def carregar(caminhos: Sequence[Path]) -> ResultadoDeCarga:
     que não acontece.
     """
     try:
-        return _carregar(caminhos)
+        return _carregar(caminhos).concluida()
     except _Rejeicao as rejeicao:
         return rejeicao.erro
 
 
-def _carregar(caminhos: Sequence[Path]) -> CargaConcluida:
+@dataclass(frozen=True)
+class _BancoLido:
+    """Banco carregado com a procedência de cada item e de cada relação.
+
+    A procedência não entra em ``CargaConcluida`` porque nada no domínio depende dela: o banco
+    de itens é a **união** dos arquivos, e qual arquivo declarou qual item é detalhe de
+    organização do conteúdo. Quem precisa dela é ``canonizar``, para reescrever cada arquivo no
+    lugar em vez de colapsar o banco num arquivo único.
+    """
+
+    itens: tuple[Item, ...]
+    relacoes_lidas: tuple[_RelacaoLida, ...]
+    arquivo_de_item: Mapping[str, Path]
+
+    def concluida(self) -> CargaConcluida:
+        """Projeta o banco na forma pública, ordenada e sem procedência."""
+        return CargaConcluida(
+            itens=tuple(sorted(self.itens, key=lambda item: item.id)),
+            relacoes=_relacoes_canonicas(lida.relacao for lida in self.relacoes_lidas),
+        )
+
+
+def _carregar(caminhos: Sequence[Path]) -> _BancoLido:
     """Corpo da carga, que sinaliza rejeição por exceção interna."""
     itens: list[Item] = []
     locais: dict[str, _Leitor] = {}
@@ -1148,13 +1238,11 @@ def _carregar(caminhos: Sequence[Path]) -> CargaConcluida:
     _verificar_associacoes(itens, relacoes, por_id, locais)
     _verificar_conflitos(relacoes, por_id)
 
-    return CargaConcluida(
-        itens=tuple(sorted(itens, key=lambda item: item.id)),
-        relacoes=tuple(
-            sorted(
-                (lida.relacao for lida in relacoes),
-                key=lambda relacao: (relacao.item_origem, relacao.item_destino, relacao.tipo),
-            )
+    return _BancoLido(
+        itens=tuple(itens),
+        relacoes_lidas=tuple(relacoes),
+        arquivo_de_item=MappingProxyType(
+            {identificador: leitor.arquivo for identificador, leitor in locais.items()}
         ),
     )
 
@@ -1204,3 +1292,291 @@ def _blocos(arquivo: _Arquivo, chave: str) -> tuple[Mapping[str, object], ...]:
             )
         blocos.append({str(nome): conteudo for nome, conteudo in elemento.items()})
     return tuple(blocos)
+
+
+# --------------------------------------------------------------------------- #
+# Serialização canônica: valores
+# --------------------------------------------------------------------------- #
+
+_CHAVE_DE_SONDA: Final = "v"
+_PREFIXO_DE_SONDA: Final = f"{_CHAVE_DE_SONDA} = "
+"""Chave descartável usada para pedir ao ``tomli-w`` o literal de **um** valor.
+
+O escape de cadeia de uma linha é delegado ao ``tomli-w`` em vez de reescrito aqui, e a razão
+é que escape é a parte do TOML em que errar é fácil e silencioso: aspas, barras invertidas,
+tabulação e caracteres de controle têm regras distintas, e um escape errado produz arquivo
+que não volta — ou, pior, que volta diferente. A delegação acontece pelo documento mínimo
+``v = <valor>``, do qual este módulo aproveita só o lado direito. O que o ``tomli-w`` **não**
+decide é a disposição do arquivo: ordem de chaves, estilo de bloco, listas em linha e linhas
+em branco são escolhas canônicas deste módulo, porque é delas que depende R3.5.
+"""
+
+_LITERAIS_EM_BLOCO: Final = frozenset({"\n", "\t"})
+"""Caracteres de controle que o TOML admite **literais** dentro de um bloco ``\"\"\"``."""
+
+_ESCAPES_CURTOS: Final = MappingProxyType({"\b": "\\b", "\f": "\\f", "\r": "\\r"})
+"""Controles com escape de duas letras. ``\\r`` entra aqui de propósito: retorno de carro
+literal seria apagado pela normalização de ``\\r\\n`` da leitura, e o texto voltaria sem ele."""
+
+_ASPAS_SEGUIDAS_MAXIMAS: Final = 2
+"""Aspas consecutivas admitidas sem escape dentro de um bloco: a terceira fecharia o bloco."""
+
+_LIMITE_DE_CONTROLE: Final = 0x20
+_CARACTERE_DEL: Final = 0x7F
+
+
+def decimal_canonico(valor: Decimal) -> str:
+    """Forma canônica mais curta que preserva o valor, em notação simples (R3.5).
+
+    Três coisas acontecem aqui, e cada uma corresponde a uma forma distinta de o mesmo número
+    ter duas escritas:
+
+    - ``normalize`` remove zeros à direita, de modo que ``0.050`` e ``0.05`` — iguais em valor
+      e diferentes em texto — produzam o mesmo arquivo;
+    - o formato ``f`` força notação **sem expoente**, porque ``PADRAO_DE_DECIMAL`` não o
+      admite: ``Decimal("1E+2")`` sai ``100``, e não ``1E+2``, que a leitura recusaria;
+    - zero sai sempre ``0``, nunca ``-0``, que é a terceira escrita do mesmo valor.
+
+    Não há arredondamento em nenhum dos três passos: a tolerância decide o acerto de item de
+    fronteira (R4.2), e um dígito perdido aqui mudaria a TAI. Valor não finito é recusado alto,
+    porque ``nan`` e ``inf`` não têm escrita que a gramática aceite — serializá-los produziria
+    um arquivo que o próprio carregador rejeita.
+    """
+    if not valor.is_finite():
+        raise ValueError(
+            f"a forma canônica exige número decimal finito; recebido {valor!s} "
+            "(a gramática de `tolerancia` não admite `nan` nem `inf`)"
+        )
+    normalizado = valor.normalize()
+    if normalizado.is_zero():
+        return "0"
+    return format(normalizado, "f")
+
+
+def _cadeia(valor: str) -> str:
+    """Literal de cadeia de uma linha, com o escape do ``tomli-w``."""
+    rendido = tomli_w.dumps({_CHAVE_DE_SONDA: valor}, multiline_strings=False)
+    return rendido.removeprefix(_PREFIXO_DE_SONDA).removesuffix(FIM_DE_LINHA)
+
+
+def _inteiro(valor: int) -> str:
+    """Literal de inteiro. ``int`` explícito porque ``True`` é um ``int`` que não é literal."""
+    return str(int(valor))
+
+
+def _escapar_em_bloco(texto: str) -> str:
+    """Escapa o conteúdo de um bloco ``\"\"\"`` preservando as quebras de linha reais.
+
+    Quebra de linha e tabulação ficam **literais**: é o que faz valer a pena escrever
+    enunciado em bloco, já que o arquivo é editado e revisado à mão. Fora delas, três coisas
+    são escapadas, e nenhuma por estilo:
+
+    - a barra invertida, sempre, porque ela é o início de todo escape;
+    - a terceira aspa de uma sequência, porque três aspas seguidas fechariam o bloco no meio
+      do texto. Escapar só a terceira — e não toda aspa — mantém legível o caso comum, que é
+      texto em pt-BR com uma citação;
+    - os demais caracteres de controle, por nome curto quando têm um e por ``\\uXXXX`` quando
+      não têm.
+    """
+    partes: list[str] = []
+    aspas_seguidas = 0
+    for caractere in texto:
+        if caractere == '"':
+            escapar = aspas_seguidas >= _ASPAS_SEGUIDAS_MAXIMAS
+            partes.append('\\"' if escapar else '"')
+            aspas_seguidas = 0 if escapar else aspas_seguidas + 1
+            continue
+        aspas_seguidas = 0
+        if caractere == "\\":
+            partes.append("\\\\")
+        elif caractere in _LITERAIS_EM_BLOCO:
+            partes.append(caractere)
+        elif caractere in _ESCAPES_CURTOS:
+            partes.append(_ESCAPES_CURTOS[caractere])
+        elif ord(caractere) < _LIMITE_DE_CONTROLE or ord(caractere) == _CARACTERE_DEL:
+            partes.append(f"\\u{ord(caractere):04X}")
+        else:
+            partes.append(caractere)
+    return "".join(partes)
+
+
+def _bloco(valor: str) -> str:
+    """Literal de cadeia em bloco ``\"\"\"``, usado sempre em enunciado e dicas.
+
+    A forma tem duas sutilezas de TOML, e as duas existem para que o texto volte **exatamente**
+    como entrou:
+
+    - a quebra de linha imediatamente após o delimitador de abertura é descartada pela
+      especificação. Emiti-la sempre é o que permite o conteúdo começar na linha de baixo sem
+      ganhar um ``\\n`` que ninguém escreveu;
+    - a barra invertida no fim da última linha de conteúdo descarta a quebra seguinte. Sem ela,
+      todo valor voltaria com um ``\\n`` extra no fim — o defeito mais fácil de não notar numa
+      ida e volta, porque a tela mostra o mesmo texto. Ela também separa o conteúdo do
+      delimitador de fechamento, de modo que um texto terminado em aspas não forme ``\"\"\"``.
+    """
+    return f'"""{FIM_DE_LINHA}{_escapar_em_bloco(valor)}\\{FIM_DE_LINHA}"""'
+
+
+def _conjunto(valores: Iterable[str]) -> tuple[str, ...]:
+    """Coleção na forma canônica: ordenada e sem repetição.
+
+    O leitor já lê ``sinonimos_unidade``, ``variacoes_gabarito``, ``termos_essenciais`` e
+    ``etapas_permitidas`` como conjuntos (``_Leitor.conjunto_de_textos``). O escritor aplica o
+    **mesmo** critério, e não só porque é simétrico: sem ele, um item construído em código com
+    a coleção fora de ordem produziria um arquivo cuja releitura reordena — e a segunda
+    serialização de R3.5 sairia diferente da primeira.
+    """
+    return tuple(sorted(set(valores)))
+
+
+def _lista(valores: Sequence[str]) -> str:
+    """Lista em linha, que é a forma da gramática e a mais legível em revisão de texto."""
+    return "[" + ", ".join(_cadeia(valor) for valor in valores) + "]"
+
+
+def _lista_de_conjuntos(conjuntos: Iterable[Sequence[str]]) -> str:
+    """Lista de listas de ``termos_essenciais``, canônica nos dois níveis."""
+    canonicos = sorted({_conjunto(conjunto) for conjunto in conjuntos})
+    return "[" + ", ".join(_lista(conjunto) for conjunto in canonicos) + "]"
+
+
+# --------------------------------------------------------------------------- #
+# Serialização canônica: blocos
+# --------------------------------------------------------------------------- #
+
+
+def _valores_de_item(item: Item) -> Mapping[str, str | None]:
+    """Literal canônico de cada campo do item, ou ``None`` no campo que não se escreve.
+
+    ``None`` cobre dois casos que, para a gramática, são o mesmo: o campo opcional ausente —
+    TOML não tem nulo, logo ausência é a única escrita possível — e a coleção vazia, que a
+    leitura trata como ausência. Escrever ``sinonimos_unidade = []`` seria uma segunda forma
+    para o mesmo conteúdo, e é a existência de duas formas que R3.5 proíbe.
+
+    ``transferencia`` é a exceção deliberada: sai sempre, inclusive em ``false``. É o campo que
+    decide se um item conta como transferência na TT (R2.9), e num arquivo que vai a revisão
+    humana o silêncio não é a melhor escrita do valor padrão.
+    """
+    tolerancia = item.tolerancia
+    sinonimos = _conjunto(item.sinonimos_unidade)
+    variacoes = _conjunto(item.variacoes_gabarito)
+    return {
+        "id": _cadeia(item.id),
+        "enunciado": _bloco(item.enunciado),
+        "habilidade_alvo": _cadeia(item.habilidade_alvo),
+        "dificuldade": _inteiro(item.dificuldade),
+        "tamanho_max_resposta": _inteiro(item.tamanho_max_resposta),
+        "tipo_gabarito": _cadeia(item.tipo_gabarito.value),
+        "gabarito": _cadeia(item.gabarito),
+        "tolerancia": None if tolerancia is None else _cadeia(decimal_canonico(tolerancia)),
+        "unidade": None if item.unidade is None else _cadeia(item.unidade),
+        "sinonimos_unidade": _lista(sinonimos) if sinonimos else None,
+        "variacoes_gabarito": _lista(variacoes) if variacoes else None,
+        "termos_essenciais": _lista_de_conjuntos(item.termos_essenciais) if item.termos_essenciais else None,
+        "incognita": None if item.incognita is None else _cadeia(item.incognita),
+        "etapas_permitidas": _lista(_conjunto(etapa.value for etapa in item.etapas_permitidas)),
+        "transferencia": "true" if item.transferencia else "false",
+    }
+
+
+def _bloco_de_item(item: Item) -> str:
+    """Um ``[[item]]`` inteiro, com a subtabela de dicas, sem linha em branco supérflua."""
+    valores = _valores_de_item(item)
+    linhas = [f"[[{TABELA_DE_ITEM}]]"]
+    linhas.extend(
+        f"{campo} = {valores[campo]}" for campo in ORDEM_CANONICA_DE_ITEM if valores[campo] is not None
+    )
+    linhas.append("")
+    linhas.append(f"[{TABELA_DE_DICAS_CANONICA}]")
+    linhas.extend(f"{nivel.name} = {_bloco(item.dicas[nivel])}" for nivel in Nivel)
+    return FIM_DE_LINHA.join(linhas)
+
+
+def _chave_de_relacao(relacao: Relacao) -> tuple[str, str, str]:
+    """Tripla que ordena as relações, a mesma com que o banco publicado as ordena."""
+    return (relacao.item_origem, relacao.item_destino, relacao.tipo)
+
+
+def _relacoes_canonicas(relacoes: Iterable[Relacao]) -> tuple[Relacao, ...]:
+    """Relações ordenadas pela tripla e sem repetição exata.
+
+    A repetição exata é descartada pelo mesmo motivo das coleções: a leitura recusa mais de uma
+    relação por par de itens, então uma relação escrita duas vezes só pode ter sido construída
+    em código — e escrevê-la duas vezes produziria um arquivo que não volta.
+    """
+    return tuple(sorted(set(relacoes), key=_chave_de_relacao))
+
+
+def _bloco_de_relacao(relacao: Relacao) -> str:
+    """Um ``[[relacao]]`` inteiro, nos três campos da ordem do esquema."""
+    valores = {
+        "item_origem": _cadeia(relacao.item_origem),
+        "item_destino": _cadeia(relacao.item_destino),
+        "tipo": _cadeia(relacao.tipo),
+    }
+    linhas = [f"[[{TABELA_DE_RELACAO}]]"]
+    linhas.extend(f"{campo} = {valores[campo]}" for campo in CAMPOS_DE_RELACAO)
+    return FIM_DE_LINHA.join(linhas)
+
+
+def serializar_canonico(itens: Sequence[Item], relacoes: Sequence[Relacao]) -> str:
+    """Texto canônico de um banco de itens, em UTF-8 sem BOM e ``LF`` (R3.3, R3.5).
+
+    Devolve **texto**, e não bytes nem arquivo: quem escreve decide o destino, e a codificação
+    é propriedade da gravação. O par com ``carregar`` é o que R3.4 e R3.5 exigem, nas duas
+    direções — interpretar, serializar e interpretar de novo dá o mesmo banco; serializar,
+    interpretar e serializar de novo dá o mesmo texto.
+
+    A ordem dos blocos não depende da ordem dos argumentos: itens saem por ``id``, relações
+    pela tripla ``(origem, destino, tipo)``. Banco vazio produz texto vazio, que **não** é
+    arquivo de definição válido — a gramática recusa arquivo sem item e sem relação —, e por
+    isso ninguém deve gravá-lo; ``canonizar`` nunca produz esse caso, porque todo arquivo
+    carregado tem conteúdo.
+
+    A função escreve o que o item declara e não revalida o banco: um item que a carga
+    rejeitaria — sinônimos de unidade sem ``unidade``, por exemplo — produz texto que a carga
+    rejeita, com a mesma mensagem. Validar é de ``carregar``, e duplicar a validação aqui
+    criaria duas respostas possíveis para a mesma pergunta.
+    """
+    blocos = [_bloco_de_item(item) for item in sorted(itens, key=lambda item: item.id)]
+    blocos.extend(_bloco_de_relacao(relacao) for relacao in _relacoes_canonicas(relacoes))
+    if not blocos:
+        return ""
+    return (FIM_DE_LINHA * 2).join(blocos) + FIM_DE_LINHA
+
+
+type ResultadoDeCanonizacao = Mapping[Path, str] | ErroDeCarga
+"""Ou o texto canônico de cada arquivo, ou a primeira rejeição da carga."""
+
+
+def canonizar(caminhos: Sequence[Path]) -> ResultadoDeCanonizacao:
+    """Texto canônico de cada arquivo do banco, depois de validar o banco inteiro (R3.3).
+
+    É o que ``adia itens formatar`` grava. A validação é do **conjunto**, e não poderia ser de
+    outro jeito: as associações de R2.2 e R2.6 e o conflito de R2.9 cruzam arquivos, de modo
+    que um arquivo isolado não é verificável. Já a reescrita é **por arquivo**, preservando a
+    partição que o autor escolheu — colapsar o banco num arquivo único passaria em R3.5 e
+    destruiria a organização do conteúdo, que é o que R3 existe para proteger.
+
+    A ordem das chaves do resultado é a ordem dos caminhos recebidos. Arquivo cujo texto já
+    está canônico aparece igual ao que está em disco, o que é o que permite a quem grava
+    distinguir "reescrito" de "já canônico" sem comparar nada mais.
+    """
+    try:
+        banco = _carregar(caminhos)
+    except _Rejeicao as rejeicao:
+        return rejeicao.erro
+
+    itens_por_arquivo: dict[Path, list[Item]] = {caminho: [] for caminho in caminhos}
+    relacoes_por_arquivo: dict[Path, list[Relacao]] = {caminho: [] for caminho in caminhos}
+    for item in banco.itens:
+        itens_por_arquivo[banco.arquivo_de_item[item.id]].append(item)
+    for lida in banco.relacoes_lidas:
+        relacoes_por_arquivo[lida.arquivo].append(lida.relacao)
+
+    return MappingProxyType(
+        {
+            caminho: serializar_canonico(itens_por_arquivo[caminho], relacoes_por_arquivo[caminho])
+            for caminho in itens_por_arquivo
+        }
+    )

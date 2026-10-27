@@ -1,10 +1,11 @@
 """Interface de linha de comando do protótipo ADIA-CognitiveLoop.
 
-O design §3.18 declara nove comandos. Nesta tarefa — 1.3, Fase 0 — apenas
-`doutor` está implementado. Os demais são declarados aqui, informam a fase e a
-tarefa em que entram e terminam com código diferente de zero: comando que ainda
-não faz nada e termina com sucesso é falsa impressão de sucesso, e num
-instrumento de pesquisa isso custa mais caro que a ausência do comando.
+O design §3.18 declara nove comandos. Estão implementados `doutor` (tarefa 1.3)
+e o grupo `itens`, com `validar` e `formatar` (tarefa 3.3). Os demais são
+declarados aqui, informam a fase e a tarefa em que entram e terminam com código
+diferente de zero: comando que ainda não faz nada e termina com sucesso é falsa
+impressão de sucesso, e num instrumento de pesquisa isso custa mais caro que a
+ausência do comando.
 
 `doutor` atende R1.7 e R1.11. Reporta, para Python, `uv`, Node.js, `npm`, `git`
 e Ollama, a versão exigida, a versão detectada e a situação entre `presente`,
@@ -27,12 +28,25 @@ aparece como observação, não como falha: por D1 as etapas sem IA e o portão
 local de §6.1 rodam integralmente com o Ollama fora (R23.5), e reprovar o
 ambiente por isso contradiria a própria arquitetura.
 
+`itens validar` e `itens formatar` atendem R3.1 a R3.5. Os dois carregam o banco
+**inteiro** antes de qualquer coisa, porque é o conjunto que é verificável: as
+associações de R2.2 e R2.6 e o conflito de R2.9 cruzam arquivos. `formatar` só
+grava depois de a carga passar, e grava **por arquivo**, preservando a partição
+que o autor escolheu.
+
+Banco vazio é caso declarado, não erro. Diretório inexistente reprova — é
+caminho errado, e caminho errado silenciado produziria um "banco válido" que
+ninguém verificou. Diretório que existe e não tem nenhum `*.adia.toml` passa com
+aviso explícito na tela: até a tarefa 3.14, que escreve o banco inicial, essa é
+a situação normal do repositório, e reprovar por ela travaria o portão local
+inteiro por uma ausência já conhecida.
+
 Códigos de saída:
 
 | Código | Significado |
 | --- | --- |
-| 0 | `doutor`: ambiente conforme |
-| 1 | `doutor`: ferramenta ausente ou divergente, ou fixação ilegível |
+| 0 | o comando verificou e aprovou |
+| 1 | o comando verificou e reprovou: ambiente fora de conformidade, banco de itens inválido ou diretório inexistente |
 | 2 | erro de uso da linha de comando (padrão do `argparse`) |
 | 3 | comando declarado cuja implementação pertence a outra fase |
 
@@ -53,10 +67,18 @@ import shutil
 import socket
 import subprocess
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal
+
+from adia.nucleo.itens.carregador import (
+    SUFIXO_DE_ARQUIVO,
+    arquivos_de_itens,
+    canonizar,
+    carregar,
+)
+from adia.nucleo.itens.erros import ErroDeCarga
 
 # --------------------------------------------------------------------------- #
 # Constantes
@@ -83,7 +105,15 @@ MARCAS_DA_RAIZ: Final = (ARQUIVO_PYTHON, "pyproject.toml")
 
 CODIGO_OK: Final = 0
 CODIGO_AMBIENTE_INVALIDO: Final = 1
+#: Mesmo valor de `CODIGO_AMBIENTE_INVALIDO`, e nome próprio de propósito: 1 é o
+#: único código de "verifiquei e reprovei", e cada comando o nomeia pelo que
+#: reprovou. Separar os nomes mantém a leitura do código honesta sem multiplicar
+#: códigos que o PowerShell trataria igual.
+CODIGO_BANCO_INVALIDO: Final = 1
 CODIGO_NAO_IMPLEMENTADO: Final = 3
+
+#: Diretório do banco de itens, relativo à raiz do projeto (design §2.3, D12).
+DIRETORIO_DE_ITENS: Final = Path("data") / "itens"
 
 SEM_VERSAO_FIXADA: Final = "não fixada"
 EXIGENCIA_INDETERMINADA: Final = "indeterminada"
@@ -645,6 +675,154 @@ def doutor() -> int:
     return codigo_de_saida(relatorio)
 
 
+# --------------------------------------------------------------------------- #
+# Comandos do grupo `itens`
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class Alvo:
+    """Diretório do banco e os arquivos de definição encontrados nele.
+
+    `arquivos` vazio com `diretorio` existente é banco vazio, que é caso
+    declarado; `diretorio` ausente vem como `problema` preenchido.
+    """
+
+    diretorio: Path | None
+    arquivos: tuple[Path, ...]
+    problema: str | None = None
+
+
+def localizar_itens(diretorio: str | None = None) -> Alvo:
+    """Resolve o diretório do banco e lista os arquivos de definição.
+
+    Sem `--diretorio`, o caminho é `data/itens/` sob a raiz do projeto, achada
+    pelas mesmas marcas que `doutor` usa. Com `--diretorio`, é o caminho dado —
+    é o que permite validar um conjunto fora do repositório sem copiar nada.
+    """
+    if diretorio is not None:
+        alvo = Path(diretorio)
+    else:
+        raiz = encontrar_raiz()
+        if raiz is None:
+            marcas = " e ".join(f"`{marca}`" for marca in MARCAS_DA_RAIZ)
+            return Alvo(
+                diretorio=None,
+                arquivos=(),
+                problema=f"raiz do projeto não localizada: nenhum diretório acima tem {marcas}",
+            )
+        alvo = raiz / DIRETORIO_DE_ITENS
+    if not alvo.is_dir():
+        return Alvo(
+            diretorio=alvo,
+            arquivos=(),
+            problema=f"`{alvo}` não é um diretório; nada foi verificado",
+        )
+    return Alvo(diretorio=alvo, arquivos=arquivos_de_itens(alvo))
+
+
+def _relatar_banco_vazio(alvo: Alvo, acao: str) -> int:
+    """Informa que o diretório existe e não tem arquivo de definição."""
+    _escrever(
+        [
+            f"Banco de itens vazio: nenhum `*{SUFIXO_DE_ARQUIVO}` em {alvo.diretorio}.",
+            f"Nada a {acao}. O banco inicial entra na Fase 1, tarefa 3.14.",
+        ]
+    )
+    return CODIGO_OK
+
+
+def _relatar_erro_de_carga(erro: ErroDeCarga) -> int:
+    """Imprime a rejeição da carga com arquivo, linha e campo (R3.2)."""
+    _escrever(
+        [
+            "Banco de itens recusado.",
+            erro.mensagem,
+            "",
+            f"Classe da falha: {type(erro).__name__}.",
+            "Nenhum item foi publicado: a carga é atômica.",
+        ]
+    )
+    return CODIGO_BANCO_INVALIDO
+
+
+def itens_validar(diretorio: str | None = None) -> int:
+    """Carrega o banco com as validações da gramática e reporta (R3.1, R3.2)."""
+    alvo = localizar_itens(diretorio)
+    if alvo.problema is not None:
+        _escrever([f"`adia itens validar` não pôde verificar o banco: {alvo.problema}"])
+        return CODIGO_BANCO_INVALIDO
+    if not alvo.arquivos:
+        return _relatar_banco_vazio(alvo, "validar")
+
+    resultado = carregar(alvo.arquivos)
+    if isinstance(resultado, ErroDeCarga):
+        return _relatar_erro_de_carga(resultado)
+
+    praticados = sum(1 for item in resultado.itens if item.e_praticado)
+    transferencia = sum(1 for item in resultado.itens if item.transferencia)
+    _escrever(
+        [
+            f"Banco de itens válido: {len(alvo.arquivos)} arquivo(s) em {alvo.diretorio}.",
+            f"{len(resultado.itens)} item(ns), dos quais {praticados} de prática "
+            f"assistida e {transferencia} de transferência.",
+            f"{len(resultado.relacoes)} relação(ões) declarada(s).",
+        ]
+    )
+    return CODIGO_OK
+
+
+def itens_formatar(diretorio: str | None = None) -> int:
+    """Reescreve cada arquivo do banco na forma canônica (R3.3, R3.5).
+
+    Grava só o que de fato muda. Arquivo já canônico não é tocado, e isso não é
+    economia de E/S: `formatar` é rodado em laço durante a escrita do banco, e
+    reescrever arquivo idêntico sujaria a data de modificação de tudo, tornando
+    inútil justamente o sinal que diz o que mudou.
+    """
+    alvo = localizar_itens(diretorio)
+    if alvo.problema is not None:
+        _escrever([f"`adia itens formatar` não pôde ler o banco: {alvo.problema}"])
+        return CODIGO_BANCO_INVALIDO
+    if not alvo.arquivos:
+        return _relatar_banco_vazio(alvo, "reescrever")
+
+    resultado = canonizar(alvo.arquivos)
+    if isinstance(resultado, ErroDeCarga):
+        return _relatar_erro_de_carga(resultado)
+
+    reescritos = _gravar_canonico(resultado)
+    _escrever(
+        [
+            f"Forma canônica aplicada em {alvo.diretorio}.",
+            *(
+                f"- {caminho.name}: {'reescrito' if caminho in reescritos else 'já canônico'}"
+                for caminho in resultado
+            ),
+            "",
+            f"{len(reescritos)} de {len(resultado)} arquivo(s) reescrito(s).",
+        ]
+    )
+    return CODIGO_OK
+
+
+def _gravar_canonico(textos: Mapping[Path, str]) -> tuple[Path, ...]:
+    """Grava os arquivos cujo conteúdo difere do canônico e devolve quais foram.
+
+    A gravação é em bytes, e não em texto: `write_text` aplicaria a tradução de
+    fim de linha da plataforma e produziria `CRLF` no Windows, contra a
+    exigência de `LF` da gramática e contra o `.gitattributes` do repositório.
+    Codificar à mão também é o que garante UTF-8 **sem** BOM.
+    """
+    reescritos: list[Path] = []
+    for caminho, canonico in textos.items():
+        bytes_canonicos = canonico.encode("utf-8")
+        if caminho.read_bytes() != bytes_canonicos:
+            caminho.write_bytes(bytes_canonicos)
+            reescritos.append(caminho)
+    return tuple(reescritos)
+
+
 #: Os nove comandos da tabela do design §3.18, na ordem em que ela os declara.
 #: `itens` e `guarda` são grupos: a invocação completa leva subcomando.
 COMANDOS: Final = (
@@ -676,18 +854,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "Fase 2",
         "8.1",
         "aplica as migrações e grava a versão vigente de esquema",
-    ),
-    "itens validar": Pendente(
-        "adia itens validar",
-        "Fase 1",
-        "3.3",
-        "carrega `data/itens/*.adia.toml` com as validações de gramática",
-    ),
-    "itens formatar": Pendente(
-        "adia itens formatar",
-        "Fase 1",
-        "3.3",
-        "reescreve os itens na forma canônica do serializador",
     ),
     "guarda verificar": Pendente(
         "adia guarda verificar",
@@ -750,14 +916,24 @@ def _ajuda_pendente(chave: str) -> str:
     return f"{pendente.resumo} (ainda não implementado: {pendente.fase}, tarefa {pendente.tarefa})"
 
 
+def _acrescentar_diretorio(analisador: argparse.ArgumentParser) -> None:
+    """Declara `--diretorio` nos comandos do grupo `itens`."""
+    analisador.add_argument(
+        "--diretorio",
+        metavar="CAMINHO",
+        default=None,
+        help=f"diretório do banco de itens (padrão: `{DIRETORIO_DE_ITENS}` sob a raiz do projeto)",
+    )
+
+
 def construir_analisador() -> argparse.ArgumentParser:
     """Declara os nove comandos do design §3.18."""
     analisador = argparse.ArgumentParser(
         prog="adia",
         description=(
             "Ferramentas de linha de comando do protótipo ADIA-CognitiveLoop. "
-            "Nesta fase apenas `doutor` está implementado; os demais comandos "
-            "informam a fase e a tarefa em que entram."
+            "Nesta fase estão implementados `doutor` e o grupo `itens`; os demais "
+            "comandos informam a fase e a tarefa em que entram."
         ),
     )
     comandos = analisador.add_subparsers(dest="comando", metavar="comando", required=True)
@@ -773,8 +949,18 @@ def construir_analisador() -> argparse.ArgumentParser:
 
     itens = comandos.add_parser("itens", help="operações sobre o banco de itens")
     subitens = itens.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
-    subitens.add_parser("validar", help=_ajuda_pendente("itens validar"))
-    subitens.add_parser("formatar", help=_ajuda_pendente("itens formatar"))
+    _acrescentar_diretorio(
+        subitens.add_parser(
+            "validar",
+            help="carrega `data/itens/*.adia.toml` com as validações da gramática; não altera nada",
+        )
+    )
+    _acrescentar_diretorio(
+        subitens.add_parser(
+            "formatar",
+            help="reescreve cada arquivo do banco na forma canônica do serializador",
+        )
+    )
 
     guarda = comandos.add_parser("guarda", help="operações sobre a guarda de vazamento")
     subguarda = guarda.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
@@ -797,6 +983,14 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
 
     subcomando = getattr(espaco, "subcomando", None)
     chave = f"{comando} {subcomando}" if isinstance(subcomando, str) else comando
+    if comando == "itens":
+        diretorio = getattr(espaco, "diretorio", None)
+        alvo = diretorio if isinstance(diretorio, str) else None
+        if chave == "itens validar":
+            return itens_validar(alvo)
+        if chave == "itens formatar":
+            return itens_formatar(alvo)
+
     pendente = PENDENTES.get(chave)
     if pendente is None:
         analisador.error(f"comando não reconhecido: {chave}")

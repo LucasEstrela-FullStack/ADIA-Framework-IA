@@ -4,10 +4,10 @@ Documento normativo da gramática dos arquivos `data/itens/*.adia.toml`. É a re
 R3.1 e R3.2 citam: o carregador interpreta conforme esta gramática, e rejeita o arquivo que
 a viole indicando caminho, linha e campo.
 
-> **Estado deste documento.** As seções 1 a 4 e 6 são normativas e correspondem ao que
-> `backend/adia/nucleo/itens/` implementa (tarefa 3.2: `modelo.py`, `erros.py`,
-> `carregador.py`). A seção 5 e a ordem canônica de chaves da seção 1 entram com o
-> serializador canônico (tarefa 3.3), que é quem pode fixá-las sem adivinhar.
+> **Estado deste documento.** As seis seções são normativas e correspondem ao que
+> `backend/adia/nucleo/itens/` implementa: `modelo.py`, `erros.py` e a leitura de
+> `carregador.py` na tarefa 3.2; `serializar_canonico` e `canonizar`, no mesmo
+> `carregador.py`, na tarefa 3.3.
 >
 > O formato TOML e a existência de um serializador canônico são decisão de design (`D12`),
 > ainda a transcrever para [`decisoes.md`](decisoes.md).
@@ -45,8 +45,9 @@ admitem ASCII: `tolerância` com acento é recusado pelo interpretador, na linha
 aparece. Acentuação é livre nos **valores** de texto — enunciado, dicas, unidade, sinônimos e
 termos essenciais —, que é onde ela significa algo.
 
-A ordem das chaves, o estilo de cadeia e o tratamento de linhas em branco da forma canônica
-ficam para a seção 5.
+A gramática aceita as chaves em qualquer ordem, a cadeia de uma linha ou em bloco e a coleção
+em qualquer ordem. A **forma canônica** — a escrita única que `adia itens formatar` produz e
+de que R3.5 depende — está na seção 5.
 
 ## 2. Campos de um item
 
@@ -156,13 +157,115 @@ transferência em repetição e infla a TT sem que nada pareça errado na tela.
 
 ## 5. Forma canônica e ida e volta
 
-Previsto: a especificação da serialização canônica que torna verdadeira a exigência mais
-dura de R3.5 — serializar, interpretar e serializar de novo produz **texto idêntico** — e a
-sua relação com a equivalência de objetos de R3.4.
+A gramática das seções 1 a 4 aceita **muitas** escritas do mesmo item: chaves em qualquer
+ordem, cadeia de uma linha ou em bloco, coleção em qualquer ordem, `0.05` e `0.050`. A forma
+canônica escolhe **uma** delas, e é essa escolha que torna verdadeira a exigência mais dura
+de R3.5 — serializar, interpretar e serializar de novo produz **texto idêntico**.
 
-*A preencher pela tarefa 3.3.* O que a leitura já fixa como pré-condição: UTF-8 sem BOM, `LF`,
-coleções em ordem crescente e sem repetição, tolerância como cadeia decimal, e banco publicado
-em ordem de `id`.
+Não é preferência de estilo. O banco de itens é revisado em texto e versionado, e duas
+escritas do mesmo conteúdo produzem diferença de `git` sem mudança de conteúdo, o que torna
+impossível separar a revisão do conteúdo do ruído de formatação. `adia itens formatar` grava
+a forma canônica; `adia itens validar` aceita qualquer escrita que a gramática admita.
+
+### 5.1 Disposição do arquivo
+
+| Aspecto | Forma canônica |
+| --- | --- |
+| Codificação e fim de linha | UTF-8 **sem** BOM, `LF`, uma única quebra de linha no fim do arquivo |
+| Ordem dos blocos | todos os `[[item]]` por `id` crescente, depois todos os `[[relacao]]` pela tripla `(origem, destino, tipo)` |
+| Linha em branco | exatamente **uma** antes de cada cabeçalho de tabela, nenhuma no começo do arquivo e nenhuma em qualquer outro lugar |
+| Comentário | **não** é preservado na reescrita (ver 5.4) |
+
+### 5.2 Ordem das chaves de um item
+
+Fixada pelo esquema, na ordem da tabela da seção 2, e **não** alfabética nem a ordem em que
+o autor escreveu:
+
+```
+id, enunciado, habilidade_alvo, dificuldade, tamanho_max_resposta, tipo_gabarito,
+gabarito, tolerancia, unidade, sinonimos_unidade, variacoes_gabarito,
+termos_essenciais, incognita, etapas_permitidas, transferencia
+```
+
+seguida da subtabela `[item.dicas]` com `L1`, `L2`, `L3` e `L4` nessa ordem. Em `[[relacao]]`:
+`item_origem`, `item_destino`, `tipo`.
+
+As duas alternativas foram descartadas por motivos diferentes. A ordem alfabética separaria
+`gabarito` de `tolerancia` e `unidade` de `sinonimos_unidade`, que são os pares que um revisor
+lê juntos. A ordem de escrita faria o texto do arquivo depender de como o objeto foi
+construído em memória, que é exatamente o que R3.5 proíbe.
+
+### 5.3 Escrita de cada valor
+
+| Construção | Forma canônica | Por quê |
+| --- | --- | --- |
+| `enunciado` e cada dica | bloco `"""`, **sempre**, inclusive com uma linha só | "bloco quando multilinha" seriam duas formas para o mesmo conteúdo |
+| Demais cadeias | cadeia básica de uma linha, `"..."`, com escape padrão de TOML | — |
+| `tolerancia` | cadeia decimal na forma mais curta que preserva o valor, em notação simples: `"0.050"` sai `"0.05"`, `1E+2` sai `"100"`, zero sai `"0"` | a gramática não admite expoente (seção 2), e arredondar mudaria o acerto de item de fronteira (R4.2) |
+| Coleção | lista **em linha**, ordem crescente, sem repetição | é conjunto escrito como lista; a ordem de escrita não é conteúdo |
+| `termos_essenciais` | lista de listas, canônica nos dois níveis | idem, em dois níveis |
+| Campo opcional ausente | **omitido** — TOML não tem nulo | — |
+| Coleção vazia | **omitida**, porque a leitura trata ausência e lista vazia como a mesma coisa | `sinonimos_unidade = []` seria a segunda forma de uma ausência |
+| `transferencia` | escrito **sempre**, inclusive `false` | decide se o item conta na TT (R2.9); num arquivo que vai a revisão humana, o silêncio não é a melhor escrita do valor padrão |
+
+O bloco tem duas sutilezas de TOML, e as duas existem para que o texto volte exatamente como
+entrou. A quebra de linha imediatamente após o delimitador de abertura é descartada pela
+especificação, e emiti-la sempre é o que deixa o conteúdo começar na linha de baixo sem ganhar
+um `\n` que ninguém escreveu. E a **barra invertida no fim da última linha de conteúdo**
+descarta a quebra seguinte: sem ela, todo valor voltaria com um `\n` a mais no fim — o defeito
+mais fácil de não notar numa ida e volta, porque a tela mostra o mesmo texto. Ela também separa
+o conteúdo do delimitador de fechamento, de modo que um enunciado terminado em aspas não
+forme `"""`.
+
+```toml
+[[item]]
+id = "alg-eq-001"
+enunciado = """
+Resolva a equação 2x + 3 = 11 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "4"
+tolerancia = "0.05"
+variacoes_gabarito = ["4", "quatro"]
+incognita = "x"
+etapas_permitidas = ["linha_de_base", "pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+O que a igualdade afirma sobre os dois lados?\
+"""
+```
+
+Dentro do bloco, a quebra de linha e a tabulação ficam **literais** — é o que faz valer a pena
+escrever enunciado em bloco num arquivo editado à mão. São escapados: a barra invertida,
+sempre; a **terceira** aspa de uma sequência, porque três aspas seguidas fechariam o bloco no
+meio do texto; e os demais caracteres de controle, por nome curto quando têm um e por `\uXXXX`
+quando não têm. Escapar só a terceira aspa, e não toda aspa, mantém legível o caso comum, que
+é texto em pt-BR com uma citação.
+
+### 5.4 O que a ida e volta preserva, e o que não preserva
+
+R3.4 e R3.5 são afirmações sobre **conteúdo de item**, em dois sentidos:
+
+- **R3.4, ida e volta de objeto:** interpretar, serializar e interpretar de novo devolve o
+  mesmo conjunto de itens, comparado por **estrutura** e não por texto. É a Propriedade 29;
+- **R3.5, estabilidade do texto:** serializar, interpretar e serializar de novo devolve texto
+  **idêntico**, byte a byte. É a Propriedade 30.
+
+Três coisas, portanto, **não** sobrevivem a `adia itens formatar`, e nenhuma delas é conteúdo
+de item: comentários, a ordem em que as chaves e as coleções foram escritas, e a partição de
+um item entre arquivos — um item permanece no arquivo em que foi declarado, mas a disposição
+interna do arquivo é reescrita por inteiro. Quem precisa registrar a razão de uma escolha de
+conteúdo registra em [`decisoes.md`](decisoes.md), não em comentário de arquivo de item.
+
+A reescrita **preserva a partição de arquivos**: a validação é do conjunto, porque as
+associações de R2.2 e R2.6 e o conflito de R2.9 cruzam arquivos, mas a gravação é arquivo por
+arquivo. Colapsar o banco num arquivo único passaria em R3.5 e destruiria a organização do
+conteúdo, que é o que R3 existe para proteger.
 
 ## 6. Erros de gramática
 

@@ -336,11 +336,10 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
         assert comando in ajuda
 
 
-def test_todo_comando_fora_do_doutor_tem_fase_e_tarefa_declaradas() -> None:
+def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
+    """`doutor` e o grupo `itens` já estão implementados; os sete restantes seguem pendentes."""
     assert set(cli.PENDENTES) == {
         "migrar",
-        "itens validar",
-        "itens formatar",
         "guarda verificar",
         "indexar",
         "replay",
@@ -358,8 +357,6 @@ def test_todo_comando_fora_do_doutor_tem_fase_e_tarefa_declaradas() -> None:
     "invocacao",
     [
         ["migrar"],
-        ["itens", "validar"],
-        ["itens", "formatar"],
         ["guarda", "verificar"],
         ["indexar"],
         ["replay"],
