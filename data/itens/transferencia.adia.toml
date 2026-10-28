@@ -1,0 +1,127 @@
+[[item]]
+id = "alg-eq-301"
+enunciado = """
+Uma corrida de aplicativo cobra uma tarifa fixa de 7 reais mais 2 reais por quilômetro rodado. A corrida de Marina custou 31 reais. Quantos quilômetros ela percorreu?\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 160
+tipo_gabarito = "numerico"
+gabarito = "12"
+tolerancia = "0.05"
+unidade = "quilômetros"
+sinonimos_unidade = ["km", "quilometros"]
+variacoes_gabarito = ["12", "doze"]
+incognita = "k"
+etapas_permitidas = ["desafio_independente"]
+transferencia = true
+
+[item.dicas]
+L1 = """
+Que grandeza o problema pede, e que grandezas ele já informa? Nomeie cada uma antes de escrever qualquer equação.\
+"""
+L2 = """
+Uma situação com uma parte fixa e uma parte que varia proporcionalmente a uma quantidade desconhecida se descreve por uma equação do primeiro grau; traduzir o texto em símbolos é o passo que falta.\
+"""
+L3 = """
+Escolha uma letra para a quantidade desconhecida, escreva a parte fixa somada ao produto do valor unitário por essa letra, iguale ao total informado e só então resolva a equação.\
+"""
+L4 = """
+Veja uma situação análoga com outros números. Uma locação cobra 5 reais de taxa fixa mais 3 reais por hora, e a conta deu 26 reais. Chamando de h as horas, temos 5 + 3h = 26. Subtraia 5 dos dois lados: 3h = 21. Divida os dois lados por 3: h = 7 horas.\
+"""
+
+[[item]]
+id = "alg-eq-302"
+enunciado = """
+Um clube cobra 45 reais de matrícula e mais 60 reais por mês de mensalidade. Bruno pagou 345 reais no total. Por quantos meses ele pagou a mensalidade?\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 160
+tipo_gabarito = "numerico"
+gabarito = "5"
+tolerancia = "0"
+unidade = "meses"
+sinonimos_unidade = ["mes", "mês"]
+variacoes_gabarito = ["5", "cinco"]
+incognita = "m"
+etapas_permitidas = ["desafio_independente"]
+transferencia = true
+
+[item.dicas]
+L1 = """
+Qual informação do enunciado aparece uma única vez, e qual se repete a cada unidade? Essa distinção organiza a tradução.\
+"""
+L2 = """
+O valor cobrado uma única vez é o termo constante da equação; o valor que se repete por unidade é o coeficiente da incógnita. Reconhecer esses dois papéis é o conceito em jogo.\
+"""
+L3 = """
+Represente a quantidade procurada por uma letra, monte a igualdade entre o total pago e a soma da parte única com o produto do valor por unidade, e resolva a equação resultante.\
+"""
+L4 = """
+Uma situação análoga com outros números. Uma academia cobra 20 reais de inscrição e mais 30 reais por mês, e o total pago foi 140 reais. Chamando de n os meses, temos 20 + 30n = 140. Subtraia 20 dos dois lados: 30n = 120. Divida os dois lados por 30: n = 4 meses.\
+"""
+
+[[item]]
+id = "alg-eq-303"
+enunciado = """
+Em uma rifa, cada bilhete custa 8 reais. Antes da rifa o caixa da turma tinha 150 reais e, depois de vender todos os bilhetes, passou a ter 710 reais. Quantos bilhetes foram vendidos?\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 160
+tipo_gabarito = "numerico"
+gabarito = "70"
+tolerancia = "0"
+unidade = "bilhetes"
+sinonimos_unidade = ["bilhete"]
+variacoes_gabarito = ["70", "setenta"]
+incognita = "b"
+etapas_permitidas = ["desafio_independente"]
+transferencia = true
+
+[item.dicas]
+L1 = """
+O que o problema pergunta não é um valor em dinheiro. Que quantidade é, então, e como você sabe?\
+"""
+L2 = """
+A diferença entre o caixa final e o caixa inicial é o que foi arrecadado, e essa arrecadação é o produto do preço unitário pela quantidade desconhecida.\
+"""
+L3 = """
+Escreva o caixa inicial somado ao produto do preço de cada bilhete pela quantidade procurada, iguale ao caixa final e resolva a equação em dois passos.\
+"""
+L4 = """
+Uma situação análoga com outros números. Cada caneta de uma feira custa 3 reais; o caixa tinha 24 reais e passou a ter 99 reais. Chamando de c as canetas, temos 24 + 3c = 99. Subtraia 24 dos dois lados: 3c = 75. Divida os dois lados por 3: c = 25 canetas.\
+"""
+
+[[item]]
+id = "alg-eq-304"
+enunciado = """
+O perímetro de um retângulo é 36 centímetros e o comprimento mede 2 centímetros mais que a largura. Qual é a largura, em centímetros?\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 160
+tipo_gabarito = "numerico"
+gabarito = "8"
+tolerancia = "0.05"
+unidade = "centímetros"
+sinonimos_unidade = ["centimetros", "cm"]
+variacoes_gabarito = ["8", "oito"]
+incognita = "x"
+etapas_permitidas = ["desafio_independente"]
+transferencia = true
+
+[item.dicas]
+L1 = """
+Que relação o enunciado estabelece entre as duas dimensões? Escreva-a em palavras antes de usar letras.\
+"""
+L2 = """
+O perímetro de um retângulo é a soma dos quatro lados, e os lados opostos são iguais. Expressar uma dimensão em função da outra é o que reduz o problema a uma única incógnita.\
+"""
+L3 = """
+Chame a largura de uma letra, escreva o comprimento como essa letra somada à diferença informada, monte a expressão do perímetro e iguale ao valor dado antes de resolver.\
+"""
+L4 = """
+Uma situação análoga com outros números. Em um retângulo de perímetro 30 centímetros cujo comprimento mede 3 centímetros mais que a largura, chamando a largura de y temos 2y + 2(y + 3) = 30, ou seja, 4y + 6 = 30. Subtraia 6 dos dois lados: 4y = 24. Divida os dois lados por 4: y = 6 centímetros.\
+"""

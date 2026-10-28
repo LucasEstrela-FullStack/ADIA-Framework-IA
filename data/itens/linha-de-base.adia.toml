@@ -1,0 +1,119 @@
+[[item]]
+id = "alg-eq-401"
+enunciado = """
+Resolva a equação x + 9 = 15 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 1
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "6"
+tolerancia = "0.05"
+variacoes_gabarito = ["6", "seis"]
+incognita = "x"
+etapas_permitidas = ["linha_de_base"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+O que você precisa somar ou retirar para que a incógnita fique sozinha? Pense na pergunta, não na conta.\
+"""
+L2 = """
+Esta é a forma mais simples de equação do primeiro grau: a incógnita aparece somada a um termo constante.\
+"""
+L3 = """
+Aplique aos dois membros a operação inversa da adição que acompanha a incógnita.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em y + 4 = 11, subtraia 4 dos dois lados: y = 7. Conferindo, 7 mais 4 resulta 11.\
+"""
+
+[[item]]
+id = "alg-eq-402"
+enunciado = """
+Resolva a equação y - 7 = 5 e informe o valor de y.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 1
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "12"
+tolerancia = "0.05"
+variacoes_gabarito = ["12", "doze"]
+incognita = "y"
+etapas_permitidas = ["linha_de_base"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Qual operação foi aplicada à incógnita nesta equação? E qual é a operação que a desfaz?\
+"""
+L2 = """
+Subtrair um valor da incógnita e somar o mesmo valor são operações inversas, e é essa inversão que a resolução usa.\
+"""
+L3 = """
+Some aos dois membros o valor que está sendo subtraído da incógnita.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em m - 3 = 4, some 3 aos dois lados: m = 7. Verificando, 7 menos 3 resulta 4.\
+"""
+
+[[item]]
+id = "alg-eq-403"
+enunciado = """
+Resolva a equação 6m = 42 e informe o valor de m.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "7"
+tolerancia = "0.05"
+variacoes_gabarito = ["7", "sete"]
+incognita = "m"
+etapas_permitidas = ["linha_de_base"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+A incógnita está sendo somada a algo ou multiplicada por algo? A resposta muda o primeiro passo.\
+"""
+L2 = """
+Aqui a incógnita está apenas multiplicada por um coeficiente: não há termo constante a tratar.\
+"""
+L3 = """
+Divida os dois membros pelo coeficiente que multiplica a incógnita.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 4t = 32, divida os dois lados por 4: t = 8. Conferindo, 4 vezes 8 resulta 32.\
+"""
+
+[[item]]
+id = "alg-eq-404"
+enunciado = """
+Resolva a equação 2t + 7 = 15 e informe o valor de t.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "4"
+tolerancia = "0.05"
+variacoes_gabarito = ["4", "quatro"]
+incognita = "t"
+etapas_permitidas = ["linha_de_base"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Quantos passos você acha que esta equação exige? Diga o número antes de resolver e confira depois.\
+"""
+L2 = """
+Duas operações separam a incógnita do resultado: uma multiplicação e uma adição. Elas se desfazem na ordem contrária à que foram aplicadas.\
+"""
+L3 = """
+Desfaça primeiro a adição nos dois membros e depois a multiplicação, dividindo os dois membros pelo coeficiente.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 3y + 2 = 17, subtraia 2 dos dois lados: 3y = 15. Divida os dois lados por 3: y = 5. Verificando, 3 vezes 5, mais 2, dá 17.\
+"""

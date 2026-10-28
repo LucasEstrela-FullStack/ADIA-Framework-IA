@@ -1,0 +1,359 @@
+[[item]]
+id = "alg-eq-101"
+enunciado = """
+Resolva a equação 2x + 3 = 11 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "4"
+tolerancia = "0.05"
+variacoes_gabarito = ["4", "4.0", "quatro"]
+incognita = "x"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Antes de calcular qualquer coisa: o que precisa continuar valendo nos dois lados de uma igualdade para que ela siga verdadeira depois de você mexer nela?\
+"""
+L2 = """
+Esta é uma equação do primeiro grau com uma incógnita. A igualdade funciona como uma balança em equilíbrio: os dois membros valem o mesmo, e é esse equilíbrio que a resolução preserva.\
+"""
+L3 = """
+Trabalhe em duas etapas. Primeiro desfaça a soma que acompanha a incógnita, aplicando a operação inversa aos dois membros; só depois desfaça a multiplicação, dividindo os dois membros pelo coeficiente da incógnita.\
+"""
+L4 = """
+Veja um exemplo resolvido com outros números. Em 5y + 2 = 17, subtraia 2 dos dois lados: 5y = 15. Agora divida os dois lados por 5: y = 3. Confira substituindo: 5 vezes 3, mais 2, resulta 17, e a igualdade se mantém.\
+"""
+
+[[item]]
+id = "alg-eq-102"
+enunciado = """
+Resolva a equação 3y - 5 = 16 e informe o valor de y.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "7"
+tolerancia = "0.05"
+variacoes_gabarito = ["7", "sete"]
+incognita = "y"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Leia a equação em voz alta, em palavras, antes de escrever qualquer passo: o que ela está afirmando sobre a incógnita?\
+"""
+L2 = """
+Aqui um termo constante está subtraído do termo que contém a incógnita. Soma e multiplicação são operações distintas e se desfazem por caminhos distintos: é esse o conceito que organiza a resolução.\
+"""
+L3 = """
+Comece anulando o termo constante do lado da incógnita com a operação inversa da subtração, aplicada aos dois membros. Depois divida ambos os membros pelo coeficiente da incógnita.\
+"""
+L4 = """
+Acompanhe um caso análogo com outros números. Em 2m - 6 = 12, some 6 aos dois lados: 2m = 18. Divida os dois lados por 2: m = 9. Verificando, 2 vezes 9, menos 6, resulta 12.\
+"""
+
+[[item]]
+id = "alg-eq-103"
+enunciado = """
+Resolva a equação 4m + 6 = 18 e informe o valor de m.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "3"
+tolerancia = "0.05"
+variacoes_gabarito = ["3", "três"]
+incognita = "m"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Que parte desta equação você resolveria sem hesitar, e que parte gera dúvida? Comece nomeando as duas.\
+"""
+L2 = """
+A incógnita está multiplicada por um coeficiente e, ao produto, foi somado um termo constante. Reconhecer a ordem em que as duas coisas foram feitas é o que permite desfazê-las.\
+"""
+L3 = """
+Aplique a operação inversa da adição aos dois membros para isolar o termo que contém a incógnita e, em seguida, a operação inversa da multiplicação.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 5y + 2 = 22, subtraia 2 dos dois lados: 5y = 20. Divida os dois lados por 5: y = 4. Substituindo de volta, 5 vezes 4, mais 2, dá 22.\
+"""
+
+[[item]]
+id = "alg-eq-104"
+enunciado = """
+Resolva a equação 7t - 2 = 40 e informe o valor de t.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "6"
+tolerancia = "0.05"
+variacoes_gabarito = ["6", "seis"]
+incognita = "t"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Se alguém lhe entregasse um número e dissesse que é a solução, como você faria para conferir se é mesmo?\
+"""
+L2 = """
+Resolver esta equação é reescrevê-la em formas equivalentes — equações diferentes com a mesma solução — até que a incógnita apareça sozinha de um lado.\
+"""
+L3 = """
+Elimine primeiro o termo constante que está do lado da incógnita, usando a operação inversa nos dois membros; depois divida os dois membros pelo coeficiente.\
+"""
+L4 = """
+Um exemplo resolvido com outros números. Em 3z - 5 = 22, some 5 aos dois lados: 3z = 27. Divida os dois lados por 3: z = 9. Conferindo, 3 vezes 9, menos 5, resulta 22.\
+"""
+
+[[item]]
+id = "alg-eq-105"
+enunciado = """
+Resolva a equação 4x + 5 = 2x + 13 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "4"
+tolerancia = "0.05"
+variacoes_gabarito = ["4", "quatro"]
+incognita = "x"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+O que muda, no seu jeito de resolver, quando a incógnita aparece nos dois lados da igualdade? Pense antes de escrever.\
+"""
+L2 = """
+O conceito em jogo é o de termos semelhantes: termos com a mesma incógnita podem ser reunidos, e os termos constantes também. Reunir não altera a igualdade, apenas a reescreve.\
+"""
+L3 = """
+Leve todos os termos com a incógnita para um mesmo membro e todos os termos constantes para o outro, aplicando a mesma operação aos dois lados em cada passo. Só então divida pelo coeficiente que restar.\
+"""
+L4 = """
+Veja um caso análogo com outros números. Em 5y + 1 = 2y + 10, subtraia 2y dos dois lados: 3y + 1 = 10. Subtraia 1 dos dois lados: 3y = 9. Divida os dois lados por 3: y = 3.\
+"""
+
+[[item]]
+id = "alg-eq-106"
+enunciado = """
+Resolva a equação 7y - 3 = 4y + 12 e informe o valor de y.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "5"
+tolerancia = "0.05"
+variacoes_gabarito = ["5", "cinco"]
+incognita = "y"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Antes de qualquer conta: quantos termos com a incógnita você vê, e em que lados eles estão?\
+"""
+L2 = """
+A igualdade permanece verdadeira quando a mesma operação é aplicada aos dois membros. É esse princípio, e não uma regra de passar para o outro lado, que autoriza cada passo.\
+"""
+L3 = """
+Agrupe os termos com a incógnita de um lado subtraindo de ambos os membros o de menor coeficiente, e depois leve o termo constante para o outro lado. A divisão pelo coeficiente é o último passo.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 6m + 2 = 3m + 20, subtraia 3m dos dois lados: 3m + 2 = 20. Subtraia 2 dos dois lados: 3m = 18. Divida os dois lados por 3: m = 6.\
+"""
+
+[[item]]
+id = "alg-eq-107"
+enunciado = """
+Resolva a equação 9m + 2 = 5m + 30 e informe o valor de m.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "7"
+tolerancia = "0.05"
+variacoes_gabarito = ["7", "sete"]
+incognita = "m"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Você já resolveu equações com a incógnita só de um lado. O que dessa experiência continua valendo aqui?\
+"""
+L2 = """
+Duas equações são equivalentes quando têm exatamente a mesma solução. Cada passo desta resolução troca a equação por outra equivalente, mais simples de ler.\
+"""
+L3 = """
+Comece reunindo os termos com a incógnita num único membro pela operação inversa da adição; depois reúna as constantes no outro membro; por fim divida os dois membros pelo coeficiente resultante.\
+"""
+L4 = """
+Um exemplo resolvido com outros números. Em 8t - 1 = 3t + 19, subtraia 3t dos dois lados: 5t - 1 = 19. Some 1 aos dois lados: 5t = 20. Divida os dois lados por 5: t = 4.\
+"""
+
+[[item]]
+id = "alg-eq-108"
+enunciado = """
+Resolva a equação 6t + 11 = 2t + 47 e informe o valor de t.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "9"
+tolerancia = "0.05"
+variacoes_gabarito = ["9", "nove"]
+incognita = "t"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Qual é a pergunta que a equação faz? Repita-a com suas palavras antes de mexer nos termos.\
+"""
+L2 = """
+Termos com a incógnita e termos constantes cumprem papéis diferentes na igualdade, e a resolução consiste em separar esses dois papéis em membros opostos.\
+"""
+L3 = """
+Subtraia dos dois membros o termo com a incógnita de menor coeficiente, depois subtraia a constante que ficou junto da incógnita e, no fim, divida pelo coeficiente.\
+"""
+L4 = """
+Acompanhe um caso análogo com outros números. Em 5x + 3 = 2x + 18, subtraia 2x dos dois lados: 3x + 3 = 18. Subtraia 3 dos dois lados: 3x = 15. Divida os dois lados por 3: x = 5.\
+"""
+
+[[item]]
+id = "alg-eq-109"
+enunciado = """
+Resolva a equação 3(x + 4) = 27 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "5"
+tolerancia = "0.05"
+variacoes_gabarito = ["5", "cinco"]
+incognita = "x"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+O que os parênteses estão dizendo sobre a ordem em que as operações foram feitas? Responda isso antes de escolher o primeiro passo.\
+"""
+L2 = """
+O que está em jogo é a propriedade distributiva da multiplicação em relação à adição: um fator que multiplica uma soma multiplica cada parcela dela.\
+"""
+L3 = """
+Você tem dois caminhos equivalentes: distribuir o fator sobre a soma dentro dos parênteses, ou dividir os dois membros por esse fator e resolver a equação mais simples que sobra. Escolha um e siga até o fim.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 2(y + 3) = 14, divida os dois lados por 2: y + 3 = 7. Subtraia 3 dos dois lados: y = 4. Conferindo, 2 vezes a soma de 4 com 3 dá 14.\
+"""
+
+[[item]]
+id = "alg-eq-110"
+enunciado = """
+Resolva a equação 4(y - 2) = 28 e informe o valor de y.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "9"
+tolerancia = "0.05"
+variacoes_gabarito = ["9", "nove"]
+incognita = "y"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Se você cobrisse os parênteses com a mão e chamasse o que está dentro de uma única quantidade, que equação sobraria?\
+"""
+L2 = """
+A expressão entre parênteses é tratada como um bloco único multiplicado por um fator. Reconhecer esse bloco é o que torna a equação familiar.\
+"""
+L3 = """
+Divida os dois membros pelo fator que multiplica os parênteses para liberar o bloco e, depois, desfaça a subtração que está dentro dele aplicando a operação inversa aos dois membros.\
+"""
+L4 = """
+Um caso análogo resolvido com outros números. Em 3(m - 1) = 15, divida os dois lados por 3: m - 1 = 5. Some 1 aos dois lados: m = 6. Verificando, 3 vezes a diferença entre 6 e 1 dá 15.\
+"""
+
+[[item]]
+id = "alg-eq-111"
+enunciado = """
+Resolva a equação 2(m + 5) = 3m + 4 e informe o valor de m.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "6"
+tolerancia = "0.05"
+variacoes_gabarito = ["6", "seis"]
+incognita = "m"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Esta equação tem parênteses de um lado e incógnita dos dois. Qual dessas duas dificuldades você já sabe tratar?\
+"""
+L2 = """
+Duas ideias se combinam aqui: a distributividade, que desfaz os parênteses, e a reunião de termos semelhantes, que organiza os dois membros.\
+"""
+L3 = """
+Primeiro aplique a distributiva para eliminar os parênteses. Depois reúna os termos com a incógnita num membro e as constantes no outro, aplicando a mesma operação aos dois lados.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 5(z + 1) = 7z + 3, distribua à esquerda: 5z + 5 = 7z + 3. Subtraia 5z dos dois lados: 5 = 2z + 3. Subtraia 3 dos dois lados: 2 = 2z. Divida os dois lados por 2: z = 1.\
+"""
+
+[[item]]
+id = "alg-eq-112"
+enunciado = """
+Resolva a equação 5(t - 3) = 2t + 9 e informe o valor de t.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "8"
+tolerancia = "0.05"
+variacoes_gabarito = ["8", "oito"]
+incognita = "t"
+etapas_permitidas = ["pratica_assistida"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Antes de distribuir, pergunte-se: o que você espera que aconteça com o número de termos da equação depois desse passo?\
+"""
+L2 = """
+O fator que está fora dos parênteses multiplica cada parcela de dentro, inclusive a que é subtraída; é aí que o sinal costuma se perder.\
+"""
+L3 = """
+Aplique a distributiva com atenção ao sinal de cada parcela, reúna os termos semelhantes de cada tipo em membros opostos e divida pelo coeficiente que restar.\
+"""
+L4 = """
+Um caso análogo resolvido com outros números. Em 4(y - 1) = 2y + 6, distribua à esquerda: 4y - 4 = 2y + 6. Subtraia 2y dos dois lados: 2y - 4 = 6. Some 4 aos dois lados: 2y = 10. Divida os dois lados por 2: y = 5.\
+"""

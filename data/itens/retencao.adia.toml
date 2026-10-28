@@ -1,0 +1,121 @@
+[[item]]
+id = "alg-eq-501"
+enunciado = """
+Resolva a equação 9x - 4 = 23 e informe o valor de x.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 2
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "3"
+tolerancia = "0.05"
+variacoes_gabarito = ["3", "três"]
+incognita = "x"
+etapas_permitidas = ["teste_retencao"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Faz algum tempo que você resolveu equações como esta. O que você lembra do procedimento?\
+"""
+L2 = """
+A estrutura é a de sempre: um coeficiente multiplicando a incógnita e um termo constante subtraído do produto.\
+"""
+L3 = """
+Some aos dois membros o valor subtraído e depois divida os dois membros pelo coeficiente.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 5y - 2 = 18, some 2 aos dois lados: 5y = 20. Divida os dois lados por 5: y = 4. Conferindo, 5 vezes 4, menos 2, dá 18.\
+"""
+
+[[item]]
+id = "alg-eq-502"
+enunciado = """
+Resolva a equação 8y + 3 = 5y + 21 e informe o valor de y.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "6"
+tolerancia = "0.05"
+variacoes_gabarito = ["6", "seis"]
+incognita = "y"
+etapas_permitidas = ["teste_retencao"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+A incógnita aparece dos dois lados. Que transformação deixaria esta equação parecida com as mais simples que você já resolveu?\
+"""
+L2 = """
+Reunir termos semelhantes produz uma equação equivalente, com a mesma solução e menos termos.\
+"""
+L3 = """
+Subtraia dos dois membros o termo com a incógnita de menor coeficiente, trate a constante em seguida e divida pelo coeficiente no último passo.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 7m + 2 = 4m + 17, subtraia 4m dos dois lados: 3m + 2 = 17. Subtraia 2 dos dois lados: 3m = 15. Divida os dois lados por 3: m = 5.\
+"""
+
+[[item]]
+id = "alg-eq-503"
+enunciado = """
+Resolva a equação 4(m - 3) = 2m + 6 e informe o valor de m.\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 4
+tamanho_max_resposta = 120
+tipo_gabarito = "numerico"
+gabarito = "9"
+tolerancia = "0.05"
+variacoes_gabarito = ["9", "nove"]
+incognita = "m"
+etapas_permitidas = ["teste_retencao"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Há parênteses e há incógnita nos dois lados. Qual dessas duas coisas você trataria primeiro, e por quê?\
+"""
+L2 = """
+A distributiva abre os parênteses preservando o sinal de cada parcela; depois dela, a equação volta a ser do tipo com incógnita nos dois membros.\
+"""
+L3 = """
+Distribua o fator, reúna os termos com a incógnita num membro e as constantes no outro, e divida pelo coeficiente que restar.\
+"""
+L4 = """
+Exemplo resolvido com outros números. Em 3(t - 2) = t + 10, distribua à esquerda: 3t - 6 = t + 10. Subtraia t dos dois lados: 2t - 6 = 10. Some 6 aos dois lados: 2t = 16. Divida os dois lados por 2: t = 8.\
+"""
+
+[[item]]
+id = "alg-eq-504"
+enunciado = """
+Em uma papelaria, um caderno custa 12 reais e cada caneta custa 3 reais. Lia comprou um caderno e algumas canetas e gastou 33 reais. Quantas canetas ela comprou?\
+"""
+habilidade_alvo = "equacao_linear"
+dificuldade = 3
+tamanho_max_resposta = 160
+tipo_gabarito = "numerico"
+gabarito = "7"
+tolerancia = "0"
+unidade = "canetas"
+sinonimos_unidade = ["caneta"]
+variacoes_gabarito = ["7", "sete"]
+incognita = "c"
+etapas_permitidas = ["teste_retencao"]
+transferencia = false
+
+[item.dicas]
+L1 = """
+Que parte do gasto aconteceu uma única vez, e que parte depende da quantidade que você precisa descobrir?\
+"""
+L2 = """
+O item comprado uma única vez entra como termo constante; o item repetido entra como produto do preço pela quantidade desconhecida.\
+"""
+L3 = """
+Chame a quantidade procurada por uma letra, iguale o gasto total à soma da parte fixa com o produto do preço unitário por essa letra, e resolva.\
+"""
+L4 = """
+Uma situação análoga com outros números. Um livro custa 20 reais e cada lápis custa 2 reais, e o gasto total foi 32 reais. Chamando de n os lápis, temos 20 + 2n = 32. Subtraia 20 dos dois lados: 2n = 12. Divida os dois lados por 2: n = 6 lápis.\
+"""

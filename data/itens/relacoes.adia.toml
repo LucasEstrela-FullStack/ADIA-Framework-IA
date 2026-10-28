@@ -1,0 +1,119 @@
+[[relacao]]
+item_origem = "alg-eq-101"
+item_destino = "alg-eq-201"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-101"
+item_destino = "alg-eq-301"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-102"
+item_destino = "alg-eq-202"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-102"
+item_destino = "alg-eq-301"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-103"
+item_destino = "alg-eq-203"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-103"
+item_destino = "alg-eq-301"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-104"
+item_destino = "alg-eq-204"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-104"
+item_destino = "alg-eq-301"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-105"
+item_destino = "alg-eq-205"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-105"
+item_destino = "alg-eq-302"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-106"
+item_destino = "alg-eq-206"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-106"
+item_destino = "alg-eq-302"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-107"
+item_destino = "alg-eq-207"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-107"
+item_destino = "alg-eq-302"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-108"
+item_destino = "alg-eq-208"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-108"
+item_destino = "alg-eq-302"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-109"
+item_destino = "alg-eq-209"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-109"
+item_destino = "alg-eq-303"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-110"
+item_destino = "alg-eq-210"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-110"
+item_destino = "alg-eq-303"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-111"
+item_destino = "alg-eq-211"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-111"
+item_destino = "alg-eq-303"
+tipo = "transferencia"
+
+[[relacao]]
+item_origem = "alg-eq-112"
+item_destino = "alg-eq-212"
+tipo = "equivalente"
+
+[[relacao]]
+item_origem = "alg-eq-112"
+item_destino = "alg-eq-303"
+tipo = "transferencia"
