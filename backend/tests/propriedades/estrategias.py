@@ -697,3 +697,52 @@ def itens_carregaveis(
         conjuntos_essenciais=conjuntos_essenciais,
         conjunto_de_etapas=etapas_permitidas(excluir=(Etapa.PRATICA_ASSISTIDA,)),
     )
+
+# --------------------------------------------------------------------------- #
+# Banco: o conjunto de itens, que é onde a unicidade de `id` vive
+# --------------------------------------------------------------------------- #
+#
+# As duas peças abaixo nasceram em `p29_item_ida_e_volta.py`, com a fronteira de nome que
+# aquele arquivo declara — o que é candidato a migrar fica público, o encanamento do teste fica
+# privado —, e migraram para cá quando P30 (tarefa 3.6) passou a precisar das duas. Unicidade de
+# `id` não é substância de nenhuma das duas propriedades: é exigência do **banco** (R3.6), que
+# vale para qualquer propriedade que monte um. Repetida em cada arquivo, ela é o tipo de
+# restrição que divergiria sem ninguém notar — e o preço da divergência é uma propriedade
+# reprovando por banco inválido em vez de pelo defeito que ela procura.
+
+
+def identificador_de(item: Item) -> str:
+    """Chave de unicidade e de ordenação do banco: o `id` do item (R3.6).
+
+    Função nomeada em vez de `lambda` por dois motivos. O primeiro é que ela aparece dos dois
+    lados de quem a usa — na unicidade da geração e na ordem esperada do banco publicado —, e as
+    duas têm de ser a mesma chave, ou a propriedade afirmaria uma ordem que não é a do banco. O
+    segundo é o de §6.3: mapeador nomeado se lê no contraexemplo encolhido.
+    """
+    return item.id
+
+
+@st.composite
+def bancos(draw: DrawFn, maximo: int) -> tuple[Item, ...]:
+    """Banco de um a `maximo` itens carregáveis, com `id` distinto (R3.6).
+
+    `unique_by` sobre o `id` porque unicidade é propriedade do **conjunto** e não do gerador,
+    como `identificadores` documenta: dois itens sorteados independentemente podem colidir, e
+    identificador duplicado é erro de carga — a propriedade reprovaria por banco inválido.
+
+    Itens **carregáveis**, pelo mesmo motivo de `itens_carregaveis` existir: item praticado exige
+    equivalente e transferência declarados como relação (R2.2, R2.6), e um banco gerado sem
+    relação nenhuma seria recusado por associação ausente. Banco com item praticado é geração de
+    **relação**, que as propriedades de ida e volta deixam fora de escopo por decisão de §5.5.
+
+    `maximo` não tem padrão de propósito: o teto de itens é decisão de **orçamento** de quem
+    chama — custa uma serialização, e às vezes uma gravação e uma carga, por item — e um padrão
+    aqui esconderia essa decisão no lugar em que ela não pode ser justificada. Encolhe para um
+    item, que é o banco mínimo compreensível.
+    """
+    if maximo < 1:
+        raise ValueError(f"o banco gerado tem ao menos um item; teto pedido: {maximo}")
+    do_banco = draw(
+        st.lists(itens_carregaveis(), min_size=1, max_size=maximo, unique_by=identificador_de)
+    )
+    return tuple(do_banco)

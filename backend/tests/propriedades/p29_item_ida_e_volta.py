@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
-from estrategias import itens_carregaveis
+from estrategias import bancos, identificador_de
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn
@@ -96,24 +96,16 @@ aparece e que uma partição uniforme esconderia.
 
 
 # --------------------------------------------------------------------------- #
-# Geração do banco
+# Geração da partição
 #
 # Convenção de nome deste arquivo: o que é candidato a migrar para `estrategias.py` no dia em
-# que uma segunda propriedade precisar dele — a estratégia `bancos` e a chave
-# `identificador_de` — fica público; o encanamento do teste fica privado. P30 (tarefa 3.6) é a
-# primeira a exercer essa fronteira.
+# que uma segunda propriedade precisar dele fica público; o encanamento do teste fica privado.
+# P30 (tarefa 3.6) exerceu essa fronteira, e ela se moveu onde devia: a estratégia `bancos` e a
+# chave `identificador_de` agora vêm de `estrategias.py`, porque unicidade e ordenação por `id`
+# são exigência do **banco** (R3.6) e não substância de nenhuma das duas propriedades. O que
+# ficou aqui é o que é de P29: a **partição** entre arquivos, que é a entrada de que só a união
+# de R3.3 precisa, e as duas gravações e cargas que ela custa.
 # --------------------------------------------------------------------------- #
-
-
-def identificador_de(item: Item) -> str:
-    """Chave de unicidade e de ordenação do banco: o `id` do item (R3.6).
-
-    Função nomeada em vez de `lambda` por dois motivos. O primeiro é que ela aparece duas
-    vezes — na unicidade da geração e na ordenação esperada —, e as duas têm de ser a mesma
-    chave, ou a propriedade afirmaria uma ordem que não é a do banco publicado. O segundo é o de
-    §6.3: mapeador nomeado se lê no contraexemplo encolhido.
-    """
-    return item.id
 
 
 def _repartir(do_banco: Sequence[Item], arquivos: int) -> tuple[tuple[Item, ...], ...]:
@@ -134,19 +126,14 @@ def _repartir(do_banco: Sequence[Item], arquivos: int) -> tuple[tuple[Item, ...]
 
 
 @st.composite
-def bancos(draw: DrawFn) -> tuple[tuple[Item, ...], ...]:
+def particoes(draw: DrawFn) -> tuple[tuple[Item, ...], ...]:
     """Banco de itens carregáveis repartido entre um e `MAXIMO_DE_ARQUIVOS` arquivos.
 
-    `unique_by` sobre o `id` porque unicidade é propriedade do **conjunto** e não do gerador, como
-    `estrategias.identificadores` documenta: dois itens sorteados independentemente podem colidir,
-    e identificador duplicado é erro de carga (R3.6) — a propriedade reprovaria por banco inválido.
-
     Encolhe para um item em um arquivo, que é o banco mínimo compreensível. A contagem de arquivos
-    é limitada ao número de itens para que nenhuma parte saia vazia.
+    é limitada ao número de itens para que nenhuma parte saia vazia — arquivo vazio é erro de
+    carga, e a propriedade reprovaria por banco inválido em vez de por defeito de ida e volta.
     """
-    do_banco = draw(
-        st.lists(itens_carregaveis(), min_size=1, max_size=MAXIMO_DE_ITENS, unique_by=identificador_de)
-    )
+    do_banco = draw(bancos(maximo=MAXIMO_DE_ITENS))
     arquivos = draw(st.integers(min_value=1, max_value=min(MAXIMO_DE_ARQUIVOS, len(do_banco))))
     return _repartir(do_banco, arquivos)
 
@@ -170,7 +157,7 @@ def _banco(resultado: ResultadoDeCarga) -> CargaConcluida:
     return resultado
 
 
-@given(bancos())
+@given(particoes())
 @settings(deadline=None)
 def test_o_banco_sobrevive_a_ida_e_volta_de_interpretacao(particao: tuple[tuple[Item, ...], ...]) -> None:
     # Feature: adia-cognitiveloop-prototype, Property 29: itens sobrevivem à ida e volta de
