@@ -1,13 +1,37 @@
-"""Erros de carga do banco de itens, todos identificando arquivo, linha e campo (R3.2).
+"""Erros do banco de itens: as nove falhas de carga e as três falhas de seleção.
 
-Catálogo de §3.1 e §7.2 do design, com as nove classes de falha que abortam a carga. Três
-decisões de forma, e a razão de cada uma:
+Catálogo de §3.1 e §7.2 do design. O módulo guarda **duas** famílias, com raízes
+deliberadamente **separadas**, e a separação é a informação mais importante daqui:
+
+- ``ErroDeCarga`` — falha de **conteúdo**, descoberta ao ler ``data/itens/*.adia.toml``.
+  Aborta a carga inteira, e com ela a subida da API: banco que não carrega não é servido
+  (§7.2). Todo erro desta família nomeia arquivo, linha e campo (R3.2);
+- ``ErroDeSelecao`` — falha de **tempo de execução**, descoberta ao atender um pedido sobre
+  um banco que já carregou sem erro. Não há arquivo nem linha a reportar, e inventá-los
+  seria a precisão fingida que esta família recusa. Recusa o **pedido**, não o banco, e vira
+  resposta ``409`` com código próprio (§7.2).
+
+Nenhuma das duas deriva da outra, e é isso que impede o defeito que a hierarquia única
+produziria: um ``except ErroDeCarga`` ou um ``isinstance`` no caminho de subida passaria a
+capturar a recusa de um pedido e abortaria o serviço por um item pedido na etapa errada —
+ou, na direção oposta, um arquivo malformado apareceria ao estudante como ``409`` em vez de
+impedir a execução. As duas famílias compartilham só a forma: erro é **valor**, e a
+mensagem não cita conteúdo.
+
+Três decisões de forma, e a razão de cada uma:
 
 **1. Erro é valor, não exceção.** ``carregar`` devolve ``CargaConcluida | ErroDeCarga``, no
 mesmo padrão de ``BancoDeItens.obter -> Item | ErroDeEtapaNaoPermitida`` (§3.1). Exceção
 pode ser engolida por um ``except`` largo no caminho de subida da API; valor de retorno
 tipado não pode ser ignorado sem que o ``mypy --strict`` recuse o uso. Como a carga é a
 pré-condição de servir (§7.2), a diferença importa.
+
+Vale para as duas famílias, e com uma consequência que a de seleção torna visível: o
+``ValueError`` continua reservado ao pedido que **não descreve nada** — conjunto de itens
+praticados vazio, identificador repetido na mesma solicitação, etapa com IA pedida a
+``elegiveis_sem_ia``. Isso é defeito de quem chama, não indisponibilidade do banco, e
+devolvê-lo como valor de erro faria a interface anunciar "conjunto indisponível" para um
+banco que tem todos os itens.
 
 **2. A localização é obrigatória, e a linha pode ser honestamente desconhecida.** Todo erro
 carrega ``arquivo``, ``linha`` e ``campo``. ``linha`` é ``int | None`` porque há um caso em
@@ -30,10 +54,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import StrEnum, unique
 from pathlib import Path
 from typing import Final
 
-from adia.tipos import Nivel
+from adia.nucleo.itens.modelo import TipoDeRelacao
+from adia.tipos import Etapa, Nivel
 
 # --------------------------------------------------------------------------- #
 # Citação de valores em mensagem
@@ -432,3 +458,249 @@ class ErroDeFaixa(ErroDeCarga):
     def detalhe(self) -> str:
         """Diz o item, o valor encontrado e a faixa que a gramática declara."""
         return f"o item {self.identificador!r} tem `{self.campo}` = {self.valor}, fora da faixa {self.faixa}"
+
+
+# --------------------------------------------------------------------------- #
+# Raiz dos erros de seleção
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class ErroDeSelecao(ABC):
+    """Raiz dos erros de tempo de execução do ``Banco_de_Itens`` (§3.1, §7.2).
+
+    **Não** deriva de ``ErroDeCarga``, e a razão não é de gosto. ``ErroDeCarga`` exige
+    ``arquivo``, ``linha`` e ``campo`` porque a falha dele *está* num arquivo; aqui o banco
+    já carregou sem erro e nenhum arquivo está errado — o que falhou foi o **pedido**. Herdar
+    forçaria preencher os três campos com um caminho inventado, que é a precisão fingida que
+    o cabeçalho deste módulo recusa, e faria a recusa de um pedido ser capturável como falha
+    de carga no caminho de subida da API.
+
+    O que a raiz garante é o par que a API precisa: ``codigo``, que §7.2 fixa por gatilho, e
+    ``mensagem``, que é o diagnóstico legível. ``codigo`` é atributo de classe porque é
+    contrato de interface — a tabela de §7.2 mapeia gatilho em código HTTP, e manter o código
+    ao lado do erro impede que o mapeamento seja reinventado na camada da API.
+
+    Como em ``ErroDeCarga``, nenhuma mensagem cita gabarito, enunciado, variação, termo
+    essencial ou texto de dica: a recusa de um pedido chega ao log e, em etapa sem IA, pode
+    chegar à tela do estudante.
+    """
+
+    @property
+    @abstractmethod
+    def codigo(self) -> str:
+        """Código de interface declarado em §7.2, estável para o cliente da API."""
+
+    @abstractmethod
+    def detalhe(self) -> str:
+        """Explicação da recusa, sem citar conteúdo de campo sigiloso."""
+
+    @property
+    def mensagem(self) -> str:
+        """Mensagem completa: código de interface e o que está indisponível."""
+        return f"{self.codigo}: {self.detalhe()}"
+
+    def __str__(self) -> str:
+        """Texto da mensagem, para que interpolar o erro já produza o diagnóstico."""
+        return self.mensagem
+
+
+# --------------------------------------------------------------------------- #
+# Item pedido para etapa que ele não admite, e item que não existe
+# --------------------------------------------------------------------------- #
+
+CODIGO_ITEM_FORA_DA_ETAPA: Final = "ITEM_FORA_DA_ETAPA"
+CODIGO_ITEM_DESCONHECIDO: Final = "ITEM_DESCONHECIDO"
+CODIGO_CONJUNTO_INDISPONIVEL: Final = "CONJUNTO_INDISPONIVEL"
+"""Códigos de interface de §7.2. Os dois primeiros respondem ``409`` em ``obter``; o
+terceiro responde ``409`` em ``conjunto_do_desafio``.
+
+``ITEM_DESCONHECIDO`` **não** está na tabela de §7.2, e é acréscimo declarado: ver
+``ErroDeItemDesconhecido``.
+"""
+
+
+@dataclass(frozen=True)
+class ErroDeEtapaNaoPermitida(ErroDeSelecao):
+    """Item pedido para etapa ausente de suas ``etapas_permitidas`` (R2.5).
+
+    §7.2 é explícito sobre as duas metades da consequência: a etapa **não** inicia e nenhum
+    substituto é escolhido em tempo de execução. A segunda metade é a que exige nome próprio
+    para este erro. Um banco que trocasse o item fora da etapa por outro "parecido" produziria
+    uma etapa que roda com itens que o protocolo não prescreveu, e a TAI do escopo passaria a
+    descrever um conjunto de itens diferente do registrado — sem nada na tela parecer errado.
+
+    ``etapas_permitidas`` vem na recusa porque é o que diz onde o item **pode** ser
+    apresentado, e é a informação que falta para corrigir o pedido ou o arquivo. Nenhum dos
+    três campos é campo de conteúdo.
+    """
+
+    item_id: str
+    etapa: Etapa
+    etapas_permitidas: frozenset[Etapa]
+
+    @property
+    def codigo(self) -> str:
+        """``ITEM_FORA_DA_ETAPA`` (§7.2)."""
+        return CODIGO_ITEM_FORA_DA_ETAPA
+
+    def detalhe(self) -> str:
+        """Diz o item, a etapa pedida e as etapas que ele admite (R2.5)."""
+        admitidas = ", ".join(sorted(etapa.value for etapa in self.etapas_permitidas))
+        return (
+            f"o item {self.item_id!r} não admite a etapa {self.etapa.value!r}; "
+            f"etapas permitidas: {admitidas} (R2.5)"
+        )
+
+
+@dataclass(frozen=True)
+class ErroDeItemDesconhecido(ErroDeSelecao):
+    """Identificador pedido que não corresponde a nenhum item do banco carregado.
+
+    **Acréscimo ao contrato de §3.1**, que declara ``obter -> Item | ErroDeEtapaNaoPermitida``
+    e não cobre o identificador inexistente. As três saídas possíveis foram consideradas, e as
+    duas descartadas o foram por motivo concreto:
+
+    - *tratar como etapa não permitida* mandaria quem depura olhar as ``etapas_permitidas`` de
+      um item que não existe, e a API responderia ``ITEM_FORA_DA_ETAPA`` para um identificador
+      obsoleto. É o erro de diagnóstico mais caro dos três;
+    - *levantar exceção* contraria o padrão do módulo e tem alvo real: §4.2 registra que
+      ``apresentacao_item.item_id`` **não** é chave estrangeira, de modo que um evento antigo
+      pode citar item que saiu do banco. Essa referência precisa ser tratável, não fatal.
+
+    Sobra o terceiro tipo no retorno, que é o que o ``mypy --strict`` obriga a distinguir.
+    """
+
+    item_id: str
+    etapa: Etapa | None = None
+
+    @property
+    def codigo(self) -> str:
+        """``ITEM_DESCONHECIDO``, acréscimo declarado à tabela de §7.2."""
+        return CODIGO_ITEM_DESCONHECIDO
+
+    def detalhe(self) -> str:
+        """Diz o identificador pedido, e a etapa quando o pedido a trazia."""
+        base = f"o identificador {self.item_id!r} não corresponde a nenhum item do banco carregado"
+        if self.etapa is None:
+            return base
+        return f"{base}; etapa pedida: {self.etapa.value!r}"
+
+
+# --------------------------------------------------------------------------- #
+# Conjunto do desafio independente indisponível
+# --------------------------------------------------------------------------- #
+
+
+@unique
+class LacunaDoConjunto(StrEnum):
+    """Causa pela qual uma associação exigida pelo desafio independente não está disponível.
+
+    Existe porque "conjunto indisponível" não diz o que consertar, e as cinco causas pedem
+    conserto em lugares diferentes: arquivo de item, ``etapas_permitidas``, composição do
+    ciclo, histórico do participante e tamanho do banco. As três primeiras são defeito de
+    conteúdo que o protocolo pode corrigir; as duas últimas são esgotamento legítimo, que
+    R2.7 produz por construção num banco pequeno.
+
+    - ``SEM_CANDIDATO_QUALIFICADO`` — nenhuma relação declarada cumpre o critério de R2.2.
+      Num banco carregado pelo ``carregador`` isto só alcança item **não** praticado, porque
+      R2.6 já recusaria o praticado na carga;
+    - ``FORA_DA_ETAPA`` — os candidatos qualificam, e nenhum admite o desafio independente nas
+      suas ``etapas_permitidas`` (R2.4, R2.5);
+    - ``PRATICADO_NO_CICLO`` — o único candidato restante é item praticado **neste** ciclo.
+      Apresentá-lo faria o desafio medir, sem assistência, um item que acabou de ser resolvido
+      com assistência, o que é precisamente o que o par isomorfo existe para evitar;
+    - ``JA_APRESENTADO`` — os candidatos elegíveis foram todos consumidos por apresentação
+      anterior em etapa sem IA (R2.7);
+    - ``DISPUTADO`` — há candidato elegível para cada item praticado, mas não há atribuição que
+      dê um equivalente **distinto** a cada um. Ver ``BancoDeItens.conjunto_do_desafio``.
+
+    **Precedência quando mais de uma causa coexiste**, do mais informativo para o menos:
+    ``JA_APRESENTADO``, ``PRATICADO_NO_CICLO``, ``FORA_DA_ETAPA``, ``DISPUTADO``,
+    ``SEM_CANDIDATO_QUALIFICADO``. A ordem não é arbitrária: "o participante já viu" descreve a
+    execução em curso e não se conserta no arquivo, e é a causa que o operador precisa
+    distinguir de um defeito de conteúdo; ``DISPUTADO`` vem antes de
+    ``SEM_CANDIDATO_QUALIFICADO`` porque na disputa havia candidato qualificado, e dizer o
+    contrário seria falso.
+    """
+
+    SEM_CANDIDATO_QUALIFICADO = "sem_candidato_qualificado"
+    FORA_DA_ETAPA = "fora_da_etapa"
+    PRATICADO_NO_CICLO = "praticado_no_ciclo"
+    JA_APRESENTADO = "ja_apresentado"
+    DISPUTADO = "disputado"
+
+
+EXPLICACAO_DA_LACUNA: Final = {
+    LacunaDoConjunto.SEM_CANDIDATO_QUALIFICADO: "nenhuma relação declarada cumpre o critério de R2.2",
+    LacunaDoConjunto.FORA_DA_ETAPA: "nenhum candidato admite a etapa do desafio independente",
+    LacunaDoConjunto.PRATICADO_NO_CICLO: "o único candidato restante é item praticado neste ciclo",
+    LacunaDoConjunto.JA_APRESENTADO: "todo candidato elegível já foi apresentado em etapa sem IA (R2.7)",
+    LacunaDoConjunto.DISPUTADO: (
+        "os candidatos elegíveis são disputados e não há atribuição que dê um equivalente "
+        "distinto a cada item praticado"
+    ),
+}
+"""Texto de cada causa, para a mensagem. Fica ao lado da enumeração para que acrescentar um
+membro sem o texto correspondente seja visível na revisão."""
+
+
+@dataclass(frozen=True)
+class ErroDeConjuntoIncompleto(ErroDeSelecao):
+    """O desafio independente não pode ser montado inteiro, e por isso não é montado (R2.10).
+
+    É o erro que a Propriedade 33 existe para exigir. O conjunto parcial é a falha que ela
+    impede: ele produziria desafio independente de tamanho diferente do praticado, e o *gap*
+    entre desempenho assistido e independente — que é a entrada da regra de regulação —
+    ficaria incomparável. Logo, ou o conjunto inteiro, ou **este valor e nenhum item**.
+
+    Os campos são o que R2.10 pede, "o item praticado e a associação indisponível", mais o que
+    torna a recusa acionável:
+
+    - ``associacao`` é ``"equivalente"`` ou ``"transferencia"``, isto é, qual das duas faltou;
+    - ``item_praticado`` é o item cujo equivalente faltou. É ``None`` **só** na lacuna de
+      transferência, e aí a identificação de R2.10 fica com ``praticados`` e ``habilidade``:
+      a exigência de transferência é da solicitação e da habilidade alvo, não de um item
+      praticado em particular, e eleger um dos praticados para nomear seria apontar um
+      culpado arbitrário. Ver a divergência anotada em ``BancoDeItens.conjunto_do_desafio``;
+    - ``lacuna`` diz **por que** não há candidato, que é o que separa defeito de conteúdo de
+      esgotamento legítimo do banco;
+    - as quatro contagens mostram onde os candidatos foram perdidos, sem citar identificador de
+      item nenhum além dos que o pedido já trazia.
+    """
+
+    praticados: tuple[str, ...]
+    habilidade: str
+    associacao: TipoDeRelacao
+    lacuna: LacunaDoConjunto
+    item_praticado: str | None
+    candidatos_qualificados: int
+    excluidos_por_etapa: int
+    excluidos_por_pratica: int
+    excluidos_por_apresentacao: int
+
+    @property
+    def codigo(self) -> str:
+        """``CONJUNTO_INDISPONIVEL`` (§7.2)."""
+        return CODIGO_CONJUNTO_INDISPONIVEL
+
+    def detalhe(self) -> str:
+        """Diz a associação que faltou, para qual item praticado, e por quê."""
+        if self.item_praticado is None:
+            alvo = (
+                f"a habilidade {self.habilidade!r} não dispõe de item de transferência elegível "
+                f"para o desafio dos praticados {list(self.praticados)}"
+            )
+        else:
+            alvo = (
+                f"o item praticado {self.item_praticado!r} não dispõe de item {self.associacao!r} "
+                f"elegível na habilidade {self.habilidade!r}"
+            )
+        return (
+            f"{alvo}: {EXPLICACAO_DA_LACUNA[self.lacuna]}; "
+            f"{self.candidatos_qualificados} candidato(s) qualificado(s), "
+            f"{self.excluidos_por_etapa} fora da etapa, "
+            f"{self.excluidos_por_pratica} praticado(s) neste ciclo, "
+            f"{self.excluidos_por_apresentacao} já apresentado(s). "
+            "Nenhum item é devolvido: o conjunto do desafio é tudo ou nada (R2.10)"
+        )
