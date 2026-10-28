@@ -1,4 +1,4 @@
-"""Fixtures compartilhadas da suíte do backend: proibição de inferência, relógio e semente.
+"""Compartilhado da suíte do backend: proibição de inferência, relógio, semente e perfil de propriedades.
 
 Três coisas vivem aqui, conforme a árvore de §2.3 do design, e as três existem
 pela mesma razão: o determinismo do protótipo precisa ser **verificável**, não
@@ -56,6 +56,45 @@ passariam incólumes. Todos eles terminam em um dos quatro pontos abaixo. Por
 isso o filtro é pela **porta de destino**, e não por biblioteca nem por
 endereço: filtrar por endereço deixaria passar `localhost`, `::1` e o IP da
 interface local.
+
+## Por que o perfil do Hypothesis mora aqui
+
+A quarta coisa deste arquivo entra por imposição de ferramenta, e não por
+afinidade com as três primeiras: o piso de **100 exemplos** que §5.0 exige de
+cada uma das 37 propriedades. Ele é declarado uma vez, como perfil, em vez de
+repetido em 37 decoradores, por uma razão de leitura: o número é regra da
+especificação, não escolha de arquivo, e repeti-lo em cada propriedade apagaria
+a diferença entre "o piso de §5.0" e "uma decisão tomada aqui". Com o perfil, o
+único `@settings` que aparece num arquivo de propriedade é o **desvio** daquela
+propriedade — que é exatamente a informação que o leitor precisa ver.
+
+O lugar natural seria `backend/tests/propriedades/conftest.py`, ao lado dos
+arquivos que o usam. Não é possível, e vale registrar o porquê para que
+ninguém tente de novo: o portão roda `mypy --strict` sobre `backend/tests`, não
+há `__init__.py` em nenhum diretório de teste, e dois arquivos chamados
+`conftest.py` colapsam no mesmo nome de módulo — `Duplicate module named
+"conftest"`, com a checagem **abortada**, não apenas um erro a mais. As duas
+saídas que o próprio mypy sugere são piores que o sintoma: `__init__.py` nos
+diretórios de teste transformaria `propriedades/` em pacote e quebraria o
+`from estrategias import ...` dos arquivos de propriedade, que depende de o
+pytest inserir o diretório em `sys.path`; e `--explicit-package-bases` quebraria
+o mesmo import pelo outro lado, renomeando o módulo para
+`tests.propriedades.estrategias`.
+
+Perfil **carregado** no escopo do processo, o que alcança toda a suíte. Isso é
+inócuo fora de `propriedades/`: só os arquivos daquele diretório usam a
+biblioteca. E os meta-testes de `test_estrategias.py`, que rodam com 50
+exemplos de propósito, continuam valendo — eles declaram o próprio
+`max_examples`, e valor explícito no teste prevalece sobre o perfil.
+
+A composição é o que sustenta a convenção, e ela é verificada em
+`propriedades/test_perfil_de_propriedades.py`: um `settings(...)` criado depois
+do carregamento herda do perfil tudo o que não declara, de modo que
+`@settings(deadline=None)` numa propriedade que toca disco mantém os 100
+exemplos. Os dois desvios que §5.0 prevê — 500 exemplos em P22, P25, P26 e P28;
+`deadline=None` em P16, P17, P31 e P35 — ficam, portanto, como `@settings` no
+teste, e não como perfis: a biblioteca mantém **um** perfil carregado por
+processo, e perfil por propriedade exigiria trocá-lo no meio da execução.
 """
 
 from __future__ import annotations
@@ -69,6 +108,23 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final, NoReturn
 
 import pytest
+from hypothesis import settings
+
+# --------------------------------------------------------------------------- #
+# Perfil dos testes de propriedade (design §5.0, §6.2)
+# --------------------------------------------------------------------------- #
+
+EXEMPLOS_MINIMOS: Final = 100
+"""Piso de exemplos por propriedade, de §5.0. Declarado, e não herdado do padrão da
+biblioteca, porque é exigência da especificação: padrão que muda numa atualização de
+versão rebaixaria as 37 propriedades sem que nada no repositório mudasse."""
+
+PERFIL_DE_PROPRIEDADES: Final = "propriedades"
+"""Nome do perfil. Único no processo: desvio por propriedade é `@settings` no teste."""
+
+settings.register_profile(PERFIL_DE_PROPRIEDADES, settings(max_examples=EXEMPLOS_MINIMOS))
+settings.load_profile(PERFIL_DE_PROPRIEDADES)
+
 
 # --------------------------------------------------------------------------- #
 # Camada 3 — proibição de chamada ao serviço de inferência local
