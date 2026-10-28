@@ -26,7 +26,19 @@ código, em arquivos de configuração e nas exportações CSV.
 > `D6`, `D7` e `DO-15` vieram da tarefa 1.2, com a fixação de versões de linguagem,
 > gerenciadores e dependências. `DO-16` veio da tarefa 1.3, com o esqueleto da CLI e o
 > comando `adia doutor`. `DO-17` veio da tarefa 1.4, com a triagem de dependências que
-> exigem rede. As demais estão na seção [Pendências](#pendências), cada
+> exigem rede. `DO-18` a `DO-20` vieram das correções de fim da Fase 0.
+>
+> `D12` e `DO-21` a `DO-36` são da **Fase 1**, do núcleo determinístico de itens: as
+> tarefas 3.2 a 3.7 produziram a gramática e a forma canônica dos arquivos de item, a
+> configuração dos testes de propriedade, os geradores compartilhados e o
+> `Banco_de_Itens`. Diferente das anteriores, boa parte destas **não** estava prevista no
+> design como decisão a registrar: elas apareceram ao implementar, e três delas
+> ([DO-25](#do-25--canonizar-preserva-a-partição-de-arquivos),
+> [DO-30](#do-30--errodeitemdesconhecido-como-terceiro-tipo-de-retorno) e
+> [DO-31](#do-31--semente-injetada-no-construtor-nunca-gerador-com-estado)) registram
+> divergência em relação ao contrato de §3.1 que o design precisa absorver.
+>
+> As demais estão na seção [Pendências](#pendências), cada
 > uma com a tarefa que a produz. Nenhum valor foi inventado aqui: todos vêm do design ou
 > dos requisitos, com a origem citada, e o que foi medido nesta máquina traz o comando que
 > produziu a medida.
@@ -99,6 +111,27 @@ código, em arquivos de configuração e nas exportações CSV.
 - **Revalidação:** quando a linha 24 sair da manutenção LTS, reavaliar para a próxima linha
   par. Mudar a linha fixada exige entrada nova aqui e atualização do `README.md` no mesmo
   movimento, porque é o `README.md` que serve de referência para R1.5 e R1.9.
+
+## D12 — Itens em TOML com serializador canônico
+
+- **Data:** 2026-10-22
+- **Decisão:** os itens vivem em `data/itens/*.adia.toml`, lidos por `tomllib`, e o projeto
+  mantém um **serializador canônico próprio** em vez de usar um escritor de TOML pronto.
+  `adia itens formatar` grava a forma canônica; `adia itens validar` aceita qualquer escrita
+  que a gramática admita. A gramática normativa está em
+  [`gramatica-itens.md`](gramatica-itens.md).
+- **Justificativa:** R3.5 exige que serializar, interpretar e serializar de novo produza
+  texto **idêntico**, byte a byte. Nenhum escritor genérico garante isso, porque a escolha
+  de estilo de cadeia, a ordem das chaves e a quebra de linha variam com a entrada. O
+  `tomli-w` 1.2.0 ficou, por isso, restrito ao **literal de cada cadeia** — que é onde
+  errar é fácil e silencioso; listas, ordem de chaves, blocos e linhas em branco são
+  escritos pelo módulo, porque o `tomli-w` sempre explode lista em várias linhas com vírgula
+  final, o que contradiz os exemplos em linha da gramática.
+- **Origem:** R3.4, R3.5; design §1.5 (D12) e §3.1.
+- **Revalidação:** se uma versão futura do `tomli-w` passar a oferecer controle de estilo de
+  lista e de ordem de chaves, vale remedir quanto do módulo ainda precisa existir.
+
+---
 
 ## DO-01 — Escala de dificuldade de item: inteiro de 1 a 5
 
@@ -640,6 +673,416 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 
 ---
 
+## DO-21 — Configuração dos testes de propriedade
+
+- **Data:** 2026-10-22
+- **Decisão:** perfil `propriedades` com `max_examples=100`, registrado **e carregado** em
+  `backend/tests/conftest.py`. O único `@settings` que aparece num arquivo de propriedade é o
+  **desvio** daquela propriedade. Os dois desvios que §5.0 prevê — 500 exemplos em P22, P25,
+  P26 e P28; `deadline=None` em P16, P17, P31 e P35 — ficam como `@settings` no teste, porque
+  a biblioteca mantém um perfil carregado por processo e perfil por propriedade exigiria
+  trocá-lo no meio da execução. O `deadline=None` fica **estendido** às propriedades de ida e
+  volta que gravam arquivo temporário, hoje P29 e P30.
+- **Justificativa:** os 100 exemplos são regra da especificação, não escolha de arquivo;
+  repeti-los em 37 decoradores apagaria a diferença entre o piso de §5.0 e uma decisão tomada
+  localmente, e criaria 37 lugares para divergir. A extensão do prazo é medida, não suposta:
+  8 a 47 ms por exemplo nesta máquina contra os 200 ms do padrão — folga que protege contra o
+  **pico**, não contra a média, e um exemplo lento basta para pintar o portão de vermelho com
+  uma mensagem sobre cronômetro. `DeadlineExceeded` que não se reproduz volta como teste
+  instável, e o modo de falha é pior que o sintoma. Prazo frouxo foi rejeitado por ser a mesma
+  medida com outro número; medir orçamento é de §2.5, com o marcador `desempenho`.
+- **Onde o perfil não pode morar:** `backend/tests/propriedades/conftest.py`. O portão roda
+  `mypy --strict` sobre `backend/tests`, nenhum diretório de teste tem `__init__.py`, e dois
+  arquivos chamados `conftest.py` colapsam no mesmo nome de módulo — `Duplicate module named
+  "conftest"`, com a checagem **abortada**, não apenas um erro a mais. As duas saídas que o
+  próprio mypy sugere são piores que o sintoma: `__init__.py` nos diretórios de teste
+  transformaria `propriedades/` em pacote e quebraria o `from estrategias import ...` dos
+  arquivos de propriedade, que depende de o pytest inserir o diretório em `sys.path`; e
+  `--explicit-package-bases` quebraria o mesmo import pelo outro lado, renomeando o módulo
+  para `tests.propriedades.estrategias`.
+- **Guarda:** `backend/tests/propriedades/test_perfil_de_propriedades.py`. O modo de falha do
+  perfil é **silencioso** — apagado, renomeado ou com o número rebaixado, as propriedades
+  seguem verdes rodando menos exemplos, nenhum portão fica vermelho e a perda não aparece em
+  lugar nenhum. O teste também fixa a composição de que a convenção depende: um `settings`
+  criado depois do carregamento herda do perfil tudo o que não declara.
+- **Origem:** design §5.0 e §6.2. Resolve a pendência "Configuração de testes de propriedade".
+- **Revalidação:** a cada subida de versão maior do `hypothesis`, porque a herança entre
+  perfil carregado e `settings` por teste é comportamento da biblioteca, não contrato público.
+
+---
+
+## DO-22 — O pytest coleta os arquivos de propriedade `p01` a `p37`
+
+- **Data:** 2026-10-22
+- **Decisão:** `python_files = ["test_*.py", "p[0-9][0-9]_*.py"]` em `pyproject.toml`.
+- **Justificativa:** o design §6.2 nomeia as 37 propriedades uma por arquivo, de
+  `p01_decisao_unica.py` a `p37_tolerancia_decide.py`. O padrão de coleta do pytest é
+  `test_*.py` e `*_test.py`, de modo que **nenhum** desses arquivos seria coletado: a
+  propriedade existiria no repositório, verde por nunca ter rodado. O número no nome do
+  arquivo é o que liga a propriedade à seção que a enuncia, e renomear 37 arquivos para
+  `test_p29_...` custaria essa ligação. `python_functions` fica no padrão `test*`, logo a
+  **função** de teste continua precisando do prefixo `test_`.
+- **Origem:** design §6.2; tarefas 3.5 e 3.6.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-23 — Gramática dos arquivos de definição de item
+
+- **Data:** 2026-10-22
+- **Decisão:** onze escolhas de gramática, todas normativas em
+  [`gramatica-itens.md`](gramatica-itens.md) e implementadas em
+  `backend/adia/nucleo/itens/carregador.py`. Cada uma fecha uma porta concreta:
+
+| Escolha | Porta que ela fecha |
+| --- | --- |
+| Tolerância é **cadeia decimal**, nunca ponto flutuante de TOML | o valor binário mais próximo de `0.05` é `0,05000000000000000277…`, e a tolerância decide o acerto de item de fronteira (R4.2) — que é o que separa acerto de erro na TAI |
+| `id`, `habilidade_alvo` e `incognita` são **ASCII** | `habilidade_alvo` é comparado por igualdade exata no pareamento de R2.2, e `"equação"` em NFC e em NFD são cadeias **diferentes** com a mesma aparência na tela: o pareamento falharia sem que nada parecesse errado |
+| Chave desconhecida é **erro**, não campo ignorado | `toleranica` com as letras trocadas, se ignorado, produziria item numérico **sem tolerância declarada** apresentado como válido |
+| Coleção é **conjunto** escrito como lista: ordenada, sem repetição | repetição silenciosamente descartada mudaria o tamanho entre uma leitura e a seguinte, e a ida e volta de R3.4 deixaria de valer |
+| Marca de ordem de bytes é **recusada**, não descartada | aceitá-la faria o arquivo mudar de bytes entre uma leitura e uma reescrita sem que o conteúdo mudasse |
+| `CRLF` é **tolerado na leitura**, e a escrita emite sempre `LF` | a quebra de linha do editor não é conteúdo do item (ver DO-18) |
+| No máximo **uma** relação por par de itens, em qualquer direção | `equivalente` e `transferencia` sobre a mesma dupla são afirmações contraditórias, e qual valeria passaria a depender da ordem de leitura |
+| A **direção** da relação é informativa, não normativa | isomorfismo é simétrico; exigir uma ordem de escrita produziria a mensagem errada — "falta equivalente" para um par declarado de trás para frente |
+| Relação declarada que não qualifica conta como **ausência**, nunca como pareamento parcial | um equivalente de dificuldade diferente faria o desafio independente medir uma tarefa mais fácil que a praticada |
+| **Comentário não sobrevive** a `adia itens formatar` | quem precisa registrar a razão de uma escolha de conteúdo registra neste arquivo, não em comentário de arquivo de item |
+| Nenhuma mensagem de erro **cita conteúdo** de campo sigiloso | a mensagem vai para o terminal, para o log de subida da API e, no pior caso, para uma captura de tela em sala; gabarito ali é vazamento por outro caminho |
+
+- **Origem:** R2.1, R2.2, R2.6, R2.8, R2.9, R2.11, R3.1 a R3.6, R4.2, R7.6; design §3.1 e §7.2.
+- **Revalidação:** qualquer campo novo no esquema do item reabre a linha de coleções e a de
+  chave desconhecida.
+
+---
+
+## DO-24 — Forma canônica do arquivo de item
+
+- **Data:** 2026-10-22
+- **Decisão:** a gramática aceita muitas escritas do mesmo item; a forma canônica escolhe
+  **uma**, e é essa escolha que torna verdadeira a exigência de R3.5. As decisões de escrita,
+  todas em `serializar_canonico`:
+
+| Construção | Forma canônica | Por quê |
+| --- | --- | --- |
+| Ordem das chaves | fixada pelo **esquema** (`ORDEM_CANONICA_DE_ITEM`) | a alfabética separaria `gabarito` de `tolerancia` e `unidade` de `sinonimos_unidade`, que são os pares que um revisor lê juntos; a ordem de inserção faria o texto depender de como o objeto foi construído em memória, que é o que R3.5 proíbe |
+| `enunciado` e cada dica | bloco de três aspas **sempre**, inclusive com uma linha só | "bloco quando multilinha" seriam duas formas para o mesmo conteúdo |
+| Fim do bloco | **barra invertida** na última linha de conteúdo | a barra descarta a quebra seguinte; sem ela, todo valor voltaria com um `\n` a mais no fim — o defeito mais fácil de não notar, porque a tela mostra o mesmo texto. Ela também separa o conteúdo do delimitador, de modo que texto terminado em aspas não forme o fechamento |
+| Aspas no texto | escapada só a **terceira** de uma sequência | três aspas seguidas fechariam o bloco no meio do texto; escapar toda aspa tornaria ilegível o caso comum, que é texto em pt-BR com uma citação |
+| Coleção | lista **em linha**, ordem crescente, sem repetição | é conjunto escrito como lista, e a ordem de escrita não é conteúdo |
+| Campo opcional ausente e coleção vazia | **omitidos** | TOML não tem nulo, e `sinonimos_unidade = []` seria a segunda escrita de uma ausência |
+| `transferencia` | escrito **sempre**, inclusive `false` | decide se o item conta na TT (R2.9); num arquivo que vai a revisão humana, o silêncio não é a melhor escrita do valor padrão |
+| `Decimal` | forma mais curta que preserva o valor, em notação simples | a gramática não admite expoente, e arredondar mudaria o acerto de item de fronteira (R4.2) |
+| `Decimal` não finito | **recusado alto**, com `ValueError` | `nan` e `inf` não têm escrita que a gramática aceite; serializá-los produziria arquivo que a própria leitura rejeita |
+| Banco vazio | texto vazio, que **não** é arquivo de definição válido | documentado para que ninguém o grave; `canonizar` nunca produz esse caso |
+
+- **Origem:** R3.5; design §3.1 e §1.5 (D12).
+- **Revalidação:** campo novo no esquema precisa entrar em `ORDEM_CANONICA_DE_ITEM`, ou
+  simplesmente **não seria escrito** e a ida e volta perderia o campo em silêncio. Há teste
+  que reprova essa omissão.
+
+---
+
+## DO-25 — `canonizar` preserva a partição de arquivos
+
+- **Data:** 2026-10-22
+- **Decisão:** além de `serializar_canonico(itens, relacoes) -> str`, que é o que o design
+  declara, existe `canonizar(caminhos) -> Mapping[Path, str] | ErroDeCarga`: ela valida o
+  banco **inteiro** e devolve o texto canônico **de cada arquivo**. É ela que
+  `adia itens formatar` grava.
+- **Justificativa:** `serializar_canonico` recebe o banco inteiro e produz um texto só. Usada
+  direto pelo comando, ela colapsaria N arquivos em um — passaria em R3.5 e destruiria a
+  organização do conteúdo, que é o que R3 existe para proteger. A validação precisa ser do
+  conjunto, porque as associações de R2.2 e R2.6 e o conflito de R2.9 cruzam arquivos e um
+  arquivo isolado não é verificável; a gravação, ao contrário, é arquivo por arquivo.
+- **Divergência registrada:** o design §3.1 declara apenas `serializar_canonico`.
+- **Origem:** R3.3, R3.5; design §3.1 e §7.2.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-26 — Códigos de saída e escopo de `adia itens validar` e `adia itens formatar`
+
+- **Data:** 2026-10-22
+- **Decisão:** quatro escolhas nos dois comandos:
+  - **banco vazio passa, com aviso explícito na tela**; **diretório inexistente reprova**;
+  - `--diretorio` nos dois subcomandos;
+  - `formatar` grava só o que de fato muda, e **nada** quando a carga falha;
+  - `CODIGO_BANCO_INVALIDO = 1`, nome próprio com o mesmo valor de
+    `CODIGO_AMBIENTE_INVALIDO`.
+- **Justificativa:** `validar` é o passo 4 do portão local e roda **antes** do `pytest`. Até a
+  tarefa 3.14, banco vazio é a situação declarada do repositório, e reprovar por ela travaria
+  o portão inteiro por uma ausência já conhecida; o aviso é o que impede a leitura "o banco
+  está bem". Caminho errado silenciado, ao contrário, produziria um "banco válido" que ninguém
+  verificou. `--diretorio` é o que permite verificar um conjunto sem tocar em `data/itens/`, e
+  é o que torna os testes da CLI possíveis sem efeito no repositório. Não reescrever arquivo
+  idêntico não é economia de E/S: `formatar` é rodado em laço durante a escrita do banco, e
+  reescrever sujaria a data de modificação de arquivo que não mudou. O código 1 é o único
+  "verifiquei e reprovei", e cada comando o nomeia pelo que reprovou — separar os nomes mantém
+  a leitura do código honesta sem multiplicar códigos que o PowerShell trataria igual.
+- **Origem:** R3.1 a R3.5; design §3.18, §6.1 e §7.2.
+- **Revalidação:** a tarefa 3.14 torna o aviso de banco vazio um sintoma, e não mais a
+  situação normal.
+
+---
+
+## DO-27 — Geradores do Hypothesis: validade por construção
+
+- **Data:** 2026-10-22
+- **Decisão:** `backend/tests/propriedades/estrategias.py` é o módulo único de geradores
+  nomeados, com seis escolhas:
+  - **dois** geradores de item. `itens` cobre o domínio inteiro, inclusive
+    `pratica_assistida` em `etapas_permitidas`; `itens_carregaveis` é o mesmo com essa etapa
+    fora, e é o único que as propriedades de ida e volta podem usar;
+  - **nenhum** gerador filtra com `assume` ou `.filter`: tudo o que a carga impõe é honrado
+    por construção;
+  - coleção gerada já sai na **forma canônica**, nos dois níveis de `termos_essenciais`;
+  - `PerfilDeGabarito` mantém juntos os cinco campos que `tipo_gabarito` acopla;
+  - mapeadores de `.map()` são **funções nomeadas**, nunca `lambda`;
+  - peso de indisponibilidade de `Medida` em **0,15**, sorteado como inteiro em centésimos.
+- **Justificativa:** item praticado exige equivalente isomorfo e item de transferência
+  **declarados como relação** (R2.2, R2.6), e isso é invariante do **banco**, não do item:
+  serializado sozinho ele é recusado com `ErroDeAssociacaoAusente`, e a propriedade reprovaria
+  por item malformado em vez de por defeito de serialização — com o contraexemplo apontando
+  para o lugar errado. Filtrar seria a outra saída, e é pior em dois sentidos: desperdiça
+  exemplos e deixa o encolhimento perseguir a borda do filtro em vez do defeito. A leitura
+  devolve `tuple(sorted(...))`, de modo que coleção gerada fora de ordem produziria item que
+  vai e volta **diferente de si mesmo**; quem precisa de ordem arbitrária — a ênfase de §5.5
+  em P30 — embaralha na própria propriedade, onde a intenção fica visível. Sortear os cinco
+  campos do perfil de forma independente produziria, na maioria dos exemplos, item que a carga
+  rejeita. E o nome do mapeador aparece no contraexemplo encolhido: `catalogo_de_dicas({...})`
+  se lê onde `<lambda>({...})` não diz nada.
+- **Nota sobre o encolhimento:** o lado para o qual `Medida` encolhe é o **indisponível**, por
+  ser o valor estruturalmente mais simples da união. Vale saber ao ler um contraexemplo de
+  métrica: o primeiro a conferir é se a indisponibilidade é parte do defeito ou só o fundo do
+  poço do encolhimento.
+- **Origem:** R29.1 a R29.3; design §6.3. Resolve a metade de `indisponibilidade = 0,15` da
+  pendência "Pesos padrão dos geradores"; o banco de 12 a 60 itens segue com a tarefa 3.14.
+- **Revalidação:** campo novo em `Item` exige revisar `PerfilDeGabarito` e o gerador de item.
+
+---
+
+## DO-28 — Convenção dos arquivos de propriedade
+
+- **Data:** 2026-10-22
+- **Decisão:** `p29_item_ida_e_volta.py` fixou a forma dos 37 arquivos, e `p30` a exerceu.
+  Seis pontos:
+  - **um arquivo, uma propriedade, um teste** (§5.0). Afirmação de apoio entra como teste
+    separado, **sem** `@given`, nunca como segundo `@given` no mesmo arquivo;
+  - **etiqueta na primeira linha do corpo**, antes da docstring, no formato de §5.0;
+  - **fronteira de nome entre `estrategias.py` e o arquivo da propriedade:** gerador de
+    domínio compartilhado **sobe** para o módulo; encanamento de E/S fica privado e
+    **repetido** em cada arquivo;
+  - `maximo` **sem padrão** em `bancos`: o teto de banco gerado é decisão de orçamento de
+    quem chama, justificada no arquivo de cada propriedade;
+  - **`tempfile`, nunca a fixture `tmp_path`**, e gravação em **bytes**;
+  - igualdade byte a byte é contra o **arquivo lido de volta do disco**, e a ausência de
+    qualquer `CR` é a forma de verificar fim de linha `LF`.
+- **Justificativa:** a fronteira de nome já se moveu uma vez e no lugar certo — `bancos` e
+  `identificador_de` subiram quando P30 passou a precisar deles, porque unicidade e ordenação
+  por `id` são exigência do **banco** (R3.6) e não substância de nenhuma das duas
+  propriedades; repetida em cada arquivo, é o tipo de restrição que divergiria sem ninguém
+  notar, e o preço é uma propriedade reprovando por banco inválido em vez de pelo defeito que
+  procura. O encanamento de E/S fica fora porque `estrategias.py` é módulo de **geradores**, e
+  acolher E/S nele apagaria o que o nome promete. Fixture de escopo de função sob `@given` é
+  reprovada pela própria biblioteca, e com razão: seria criada uma vez e compartilhada por
+  todos os exemplos. `write_text` no Windows traduziria `LF` em `CRLF`, e o arquivo deixaria de
+  ser o que o serializador produziu. Reencodificar a cadeia em memória tornaria as afirmações
+  de BOM e de `CRLF` afirmações sobre a biblioteca padrão, não sobre o arquivo.
+- **Guarda da ênfase:** quando §5.5 declara uma ênfase de geração, ela é afirmada com `find`
+  num teste de apoio. O modo de falha é silencioso: embaralhamento que deixasse de embaralhar
+  não quebra nada — a propriedade segue verde, afirmando a estabilidade sobre entrada que já
+  estava canônica, e o que se perde é a chance de encontrar o defeito.
+- **Achado que justifica as duas propriedades serem separadas:** com a subtabela de dicas
+  emitida na ordem de inserção — o que um escritor de TOML genérico faz — **P29 passa** e só
+  P30 reprova. P29 compara estrutura, e `Mapping` não compara ordem: as duas cargas devolvem o
+  catálogo em ordem de `Nivel` de todo modo. É defeito que só o texto vê.
+- **Origem:** design §5.0, §5.5 e §6.3.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-29 — Duas raízes de erro no banco de itens, sem herança entre elas
+
+- **Data:** 2026-10-22
+- **Decisão:** `backend/adia/nucleo/itens/erros.py` guarda duas famílias com raízes
+  **separadas**: `ErroDeCarga`, falha de **conteúdo** descoberta ao ler `data/itens/`, que
+  aborta a carga e com ela a subida da API; e `ErroDeSelecao`, falha de **tempo de execução**
+  descoberta ao atender um pedido sobre banco que já carregou, que recusa o **pedido** e vira
+  resposta `409`. Nenhuma deriva da outra. Acompanha a decisão: `ValueError` fica reservado ao
+  pedido que **não descreve nada** — conjunto de praticados vazio, identificador repetido na
+  mesma solicitação, etapa com IA pedida a `elegiveis_sem_ia`.
+- **Justificativa:** a hierarquia única produziria um defeito concreto nas duas direções. Um
+  `except ErroDeCarga` ou um `isinstance` no caminho de subida passaria a capturar a recusa de
+  um pedido e abortaria o serviço por um item pedido na etapa errada; na direção oposta, um
+  arquivo malformado apareceria ao estudante como `409` em vez de impedir a execução.
+  `ErroDeCarga` exige `arquivo`, `linha` e `campo` porque a falha dele **está** num arquivo;
+  herdar forçaria inventar um caminho, que é a precisão fingida que o módulo recusa. E
+  `ValueError` como valor de erro faria a interface anunciar "conjunto indisponível" para um
+  banco que tem todos os itens — defeito de quem chama apresentado como indisponibilidade de
+  conteúdo.
+- **Nota de verificação:** o `mypy --strict` com `warn_unused_ignores` **prova** que a
+  interseção dos dois tipos é vazia — um `isinstance(erro, ErroDeCarga)` sobre erro de seleção
+  é código morto, e o verificador recusa. O teste afirma a mesma invariante pela hierarquia,
+  legível sem rodar o mypy.
+- **Origem:** design §3.1 e §7.2. Relaciona-se à pendência "Recusa da API em servir diante de
+  erro de carga do banco de itens".
+- **Revalidação:** a tarefa 9.1, que monta o catálogo de erros da API, consome esta taxonomia.
+
+---
+
+## DO-30 — `ErroDeItemDesconhecido` como terceiro tipo de retorno
+
+- **Data:** 2026-10-22
+- **Decisão:** `BancoDeItens.obter` devolve
+  `Item | ErroDeEtapaNaoPermitida | ErroDeItemDesconhecido`, e `conjunto_do_desafio` recebe o
+  mesmo terceiro tipo. Código de interface `ITEM_DESCONHECIDO`.
+- **Justificativa:** o contrato de §3.1 escreve `Item | ErroDeEtapaNaoPermitida`, que não cobre
+  o identificador que não existe — caso que não desaparece por não estar previsto. Tratá-lo
+  como etapa não permitida mandaria quem depura olhar as `etapas_permitidas` de um item que
+  não existe, e a API responderia `ITEM_FORA_DA_ETAPA` para identificador obsoleto. Levantar
+  contraria o padrão do módulo e tem alvo real: o design §4.2 registra que
+  `apresentacao_item.item_id` **não** é chave estrangeira, então um evento antigo pode citar
+  item que saiu do banco — referência que precisa ser tratável, não fatal.
+- **Divergência registrada:** §3.1 e a tabela de §7.2 precisam da terceira linha.
+- **Origem:** R2.5; design §3.1, §4.2 e §7.2.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-31 — Semente injetada no construtor, nunca gerador com estado
+
+- **Data:** 2026-10-22
+- **Decisão:** `BancoDeItens(carga, semente)`. A semente entra na **construção**, e o módulo
+  não guarda nenhum gerador: cada chave de ordenação sai de uma instância própria de
+  `random.Random`, semeada com a cadeia `semente ⟂ contexto ⟂ id do candidato`, usando o
+  separador de unidade do ASCII como delimitador.
+- **Justificativa:** a semente é parâmetro da **execução**, não do pedido — uma semente por
+  chamada permitiria que dois pedidos da mesma execução usassem sementes diferentes, e a
+  semente registrada na proveniência deixaria de descrever a seleção que de fato aconteceu.
+  Duas propriedades vêm da chave por candidato, e nenhuma viria de um gerador guardado no
+  banco: a **independência da ordem das chamadas**, porque um gerador avançaria a cada pedido
+  e a escolha do ciclo 3 passaria a depender de quantas vezes o ciclo 1 chamou o banco —
+  contagem que não está registrada em lugar nenhum, e sem a qual o replay de R26.7 não
+  reproduz a seleção; e a **estabilidade sob crescimento do banco**, porque a chave é por
+  candidato e não um embaralhamento da lista inteira, de modo que acrescentar um item não
+  reordena a preferência entre os que já existiam — o que mantém legível uma preferência
+  antiga depois de a tarefa 3.14 acrescentar conteúdo.
+- **Nota sobre o contrato `nucleo-puro`:** ele proíbe `secrets`, `uuid` e `time` em
+  `adia.nucleo`. `random` com semente **explícita** é o oposto do que a proibição persegue, que
+  é a aleatoriedade implícita. O semeamento é por cadeia de texto, e não por tupla, porque o
+  Python 3.11 removeu o semeamento a partir de objeto arbitrário; para `str` a semente passa
+  por `sha512` do texto em UTF-8, determinística entre execuções, plataformas e valores de
+  `PYTHONHASHSEED`.
+- **Divergência registrada:** §3.1 diz que "a seleção usa a semente registrada" mas a
+  assinatura que ele declara não tem onde recebê-la. O design precisa declarar o construtor.
+- **Origem:** R26.3, R26.7; design §3.1, §4.3 e §6.4.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-32 — Emparelhamento máximo, não escolha gulosa, na atribuição de equivalentes
+
+- **Data:** 2026-10-22
+- **Decisão:** `conjunto_do_desafio` atribui equivalentes a itens praticados por
+  **emparelhamento máximo bipartido com caminhos de aumento** — reacomoda o dono de um
+  candidato antes de desistir. Determinístico: praticados na ordem do pedido, candidatos na
+  ordem da semente.
+- **Justificativa:** a escolha gulosa falha num caso que tem solução. Com os equivalentes de
+  `p1` sendo `{a, b}` e os de `p2` sendo `{a}`, o guloso dá `a` a `p1`, deixa `p2` sem nada e
+  recusa o pedido — embora a atribuição `p1→b, p2→a` exista. Isso não violaria a letra da
+  Propriedade 33, que proíbe conjunto parcial e não exige sucesso, mas violaria o que ela
+  protege: abortaria um ciclo que o banco tinha itens para atender, e o aborto apareceria como
+  lacuna de conteúdo inexistente — alguém iria mexer em `data/itens/` para corrigir um
+  problema que não está lá. Com o emparelhamento máximo, a recusa só acontece quando nenhuma
+  atribuição completa existe, e aí é fato sobre o banco, não artefato da ordem de visita.
+- **Origem:** R2.3, R2.10; design §3.1 e §5.6 (Propriedade 33).
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-33 — Composição do conjunto do desafio independente
+
+- **Data:** 2026-10-22
+- **Decisão:** três escolhas sobre o que entra no conjunto:
+  - **exatamente um** item de transferência, não "um ou mais"
+    (`TRANSFERENCIAS_NO_CONJUNTO = 1`), de modo que o tamanho é sempre
+    `itens praticados + 1`;
+  - o universo de candidatos de transferência é a **habilidade alvo**, não a relação
+    declarada;
+  - item **praticado no ciclo** é inelegível como equivalente de outro praticado do mesmo
+    ciclo.
+- **Justificativa:** R2.3 pede "ao menos um item de transferência" **e** "nenhum outro item", e
+  entregar exatamente um é a leitura que mantém as duas metades verdadeiras ao mesmo tempo.
+  Também mantém a TT comparável: com quantidade variável, uma TT de 0,5 significaria coisas
+  diferentes em dois ciclos do mesmo participante. O universo pela habilidade segue a letra de
+  §3.1 — a relação declarada continua exigida na **carga**, item por item (R2.6), mas fixá-la
+  na montagem faria a disponibilidade do desafio depender de qual praticado o autor do arquivo
+  escolheu como origem da relação, que a gramática declara informativa (DO-23). E apresentar um
+  item praticado minutos antes com assistência como desafio **sem** assistência mediria memória
+  recente, não desempenho autônomo — que é exatamente o que o par isomorfo existe para evitar.
+  Essa última exclusão não está enunciada em nenhum requisito; está implícita no propósito do
+  par e fica registrada aqui por isso.
+- **Divergência registrada:** `ErroDeConjuntoIncompleto.item_praticado` é `str | None`. R2.10
+  pede que o erro identifique "o item praticado e a associação indisponível", mas na lacuna de
+  **transferência** não há praticado responsável: a exigência é da solicitação e da habilidade
+  alvo. Eleger um dos praticados seria apontar culpado arbitrário; o erro carrega `praticados`
+  (todos) e `habilidade`, que identifica mais, não menos. A redação de R2.10 merece revisão
+  nessa metade.
+- **Origem:** R2.3, R2.6, R2.10, R8.3, R11.2; design §3.1 e §7.2.
+- **Revalidação:** se o protocolo passar a querer mais de um item de transferência, a
+  constante é o único lugar a mudar.
+
+---
+
+## DO-34 — Taxonomia das lacunas do conjunto, com precedência declarada
+
+- **Data:** 2026-10-22
+- **Decisão:** `LacunaDoConjunto` distingue cinco causas, avaliadas nesta ordem:
+  `JA_APRESENTADO`, `PRATICADO_NO_CICLO`, `FORA_DA_ETAPA`, `DISPUTADO`,
+  `SEM_CANDIDATO_QUALIFICADO`.
+- **Justificativa:** as causas pedem **consertos diferentes**, e quem opera o protocolo precisa
+  saber qual antes de mexer em `data/itens/`. "Sem candidato qualificado" tem conserto no
+  arquivo do item; "já apresentado" não tem conserto nenhum no arquivo — o participante já viu
+  todos, e a saída é ampliar o banco. A precedência tem duas razões: "já apresentado" vem
+  primeiro porque é a única que descreve a **execução em curso** em vez do conteúdo do banco,
+  e é a consequência esperada de R2.7 num banco pequeno; e "disputado" vem antes de "sem
+  candidato qualificado" porque na disputa **havia** candidato qualificado, e dizer o contrário
+  seria falso.
+- **Origem:** R2.7, R2.10; design §3.1 e §7.2.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-35 — Critério de qualificação de R2.2 com uma só implementação
+
+- **Data:** 2026-10-22
+- **Decisão:** `equivalente_qualifica`, `transferencia_qualifica` e
+  `e_de_transferencia_da_habilidade` moram em `backend/adia/nucleo/itens/modelo.py`, públicas,
+  e são importadas tanto pelo carregador quanto pelo banco.
+- **Justificativa:** o carregador recusa o item praticado sem equivalente (R2.6) e o banco
+  monta o desafio com os que qualificam (R2.3) — é o **mesmo** critério aplicado em dois
+  momentos. Duas cópias divergiriam na primeira correção feita em um lado só, e a divergência
+  seria silenciosa nas duas direções: banco aceito na carga recusando a montagem, ou o
+  contrário.
+- **Origem:** R2.2, R2.3, R2.6; design §3.1.
+- **Revalidação:** nenhum gatilho previsto.
+
+---
+
+## DO-36 — O sigilo da mensagem de erro é afirmado sobre `detalhe()`
+
+- **Data:** 2026-10-22
+- **Decisão:** o teste que verifica que nenhuma mensagem cita conteúdo de campo sigiloso
+  afirma sobre `erro.detalhe()`, e não sobre `erro.mensagem`.
+- **Justificativa:** `mensagem` compõe `local`, o nome do campo e `detalhe()`, e `local` traz o caminho
+  do arquivo. Sob `tmp_path` esse caminho inclui o número da sessão do pytest, de modo que um
+  segredo de um dígito casa com ele por coincidência: o teste reprovava **sobre o caminho** em
+  vez de sobre o conteúdo, em cerca de uma execução em cinco para o segredo `"7"`. Reproduzido
+  de forma determinística com `--basetemp` contendo os dígitos. A superfície de vazamento é
+  `detalhe()`; caminho e linha são estruturais e exigidos por R3.2, e não podem conter conteúdo
+  de campo.
+- **Origem:** R3.2; design §7.2 e §6 de [`gramatica-itens.md`](gramatica-itens.md).
+- **Revalidação:** nenhum gatilho previsto.
+
 ---
 
 ## Pendências
@@ -665,7 +1108,6 @@ A lista existe para que nenhuma se perca entre fases.
 | `D9` — base de cálculo da `confiança_média` do viés | design §1.5 |
 | `D10` — um único valor de viés por ciclo, produzido por `MetricasDoCiclo.vies` | design §1.5 |
 | `D11` — API local sem autenticação, com a lista de seis pré-condições de qualquer exposição futura | design §1.5 |
-| `D12` — itens em TOML com serializador canônico | R3.4, R3.5; design §1.5 |
 | `D13` — busca vetorial exaustiva, com gatilho de revisão acima de 50 000 trechos | design §1.5 |
 | `D14` — parâmetros de inferência do `llama3.2:1b` derivados do hardware auditado | design §1.5 |
 | Arredondamento a quatro casas com meio para cima **antes** da comparação com limiar, e igualdade no limiar valendo só para `>=` e `<=` | R9.12; design §3.2 |
@@ -674,8 +1116,7 @@ A lista existe para que nenhuma se perca entre fases.
 | Regra de desempate do separador decimal e a falha fechada no caso ambíguo | R7.11; design §3.11 |
 | `responsavel_id` e `avaliador_id` no formato `PROF-NN`, mantidos fora do banco operacional | R25.3; design §4 |
 | Proveniência embutida nas seis últimas colunas de cada CSV, com a alternativa rejeitada anotada | R16.8; design §4 |
-| Configuração de testes de propriedade: 500 exemplos para P22, P25, P26 e P28; `deadline=None` para P16, P17, P31 e P35 | design §5 |
-| Pesos padrão dos geradores: `indisponibilidade = 0,15`, banco de itens entre 12 e 60, composição `3 / 10 / 20` do corpus sintético | design §6.3 |
+| Pesos padrão dos geradores, a metade que resta: banco de itens entre 12 e 60 (tarefa 3.14) e composição `3 / 10 / 20` do corpus sintético (Fase 4). O peso `indisponibilidade = 0,15` está em [DO-27](#do-27--geradores-do-hypothesis-validade-por-construção) | design §6.3 |
 | Seleção de modelo no benchmark e remoção dos candidatos não selecionados, com o tamanho em disco registrado antes da remoção | R20.2, R24.6; design §2.5 |
 | Alterações na composição do conjunto de verificação da guarda, com caso, motivo e responsável | R7.11; design §6.5 |
 | Destino do registro da falha de escrita do próprio log de eventos, fora do banco | design §7 |
