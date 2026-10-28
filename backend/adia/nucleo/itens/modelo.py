@@ -236,3 +236,59 @@ class Relacao:
         """Recusa relação de um item consigo mesmo, que não declara par nenhum."""
         if self.item_origem == self.item_destino:
             raise ValueError(f"a relação {self.tipo!r} do item {self.item_origem!r} aponta para ele mesmo.")
+
+# --------------------------------------------------------------------------- #
+# Qualificação de associação
+# --------------------------------------------------------------------------- #
+
+
+def equivalente_qualifica(praticado: Item, candidato: Item) -> bool:
+    """Se o candidato cumpre o isomorfismo estrutural que R2.2 exige do equivalente.
+
+    Critério normativo da seção 4 de ``docs/gramatica-itens.md``: mesma habilidade alvo,
+    mesma dificuldade, identificador e enunciado distintos do item praticado.
+
+    Vive aqui, e não no carregador, porque **dois** componentes dependem dele e o critério
+    tem de ser o mesmo nos dois: o carregador recusa o item praticado sem equivalente que
+    qualifique (R2.6), e o ``Banco_de_Itens`` monta o conjunto do desafio com os que
+    qualificam (R2.3). Duas cópias do critério divergiriam na primeira correção feita em
+    um lado só, e a divergência seria silenciosa — um banco aceito na carga passaria a
+    recusar a montagem do desafio, ou o contrário.
+
+    A direção da relação declarada não entra no critério: isomorfismo é simétrico por
+    natureza, e quem examina o par passa os dois sentidos (ver ``Relacao``).
+    """
+    return (
+        candidato.id != praticado.id
+        and candidato.habilidade_alvo == praticado.habilidade_alvo
+        and candidato.dificuldade == praticado.dificuldade
+        and candidato.enunciado != praticado.enunciado
+    )
+
+
+def e_de_transferencia_da_habilidade(candidato: Item, habilidade: str) -> bool:
+    """Se o item é item de transferência da habilidade alvo dada (R2.2, R11.2).
+
+    Metade do critério de ``transferencia_qualifica`` que não depende de item praticado algum:
+    ``transferencia = true`` declarado **no candidato** e a habilidade alvo pedida. A
+    dificuldade não entra, e a ausência é deliberada — transferência exige adaptação da
+    estrutura de solução, não repetição dela, e exigir dificuldade igual transformaria o
+    critério em isomorfismo por outro nome.
+
+    Está separada porque os dois usos pedem formas diferentes da mesma pergunta: o carregador
+    pergunta "este par qualifica?" (R2.6, par a par), e o ``Banco_de_Itens`` pergunta "quais
+    itens de transferência esta habilidade tem?" (R2.3, por habilidade). Uma função para cada
+    pergunta, **um** critério por trás das duas.
+    """
+    return candidato.transferencia and candidato.habilidade_alvo == habilidade
+
+
+def transferencia_qualifica(praticado: Item, candidato: Item) -> bool:
+    """Se o candidato é item de transferência da mesma habilidade alvo do praticado (R2.2).
+
+    Critério normativo da seção 4 de ``docs/gramatica-itens.md``, aplicado a um par: o
+    candidato não é o próprio item praticado e é item de transferência da habilidade alvo dele.
+    """
+    return candidato.id != praticado.id and e_de_transferencia_da_habilidade(
+        candidato, praticado.habilidade_alvo
+    )

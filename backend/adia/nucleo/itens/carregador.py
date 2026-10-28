@@ -111,7 +111,9 @@ from adia.nucleo.itens.modelo import (
     Relacao,
     TipoDeRelacao,
     TipoGabarito,
+    equivalente_qualifica,
     tipo_de_relacao,
+    transferencia_qualifica,
 )
 from adia.tipos import Etapa, Nivel
 
@@ -1083,25 +1085,6 @@ def _candidatos(
     return encontrados
 
 
-def _equivalente_qualifica(praticado: Item, candidato: Item) -> bool:
-    """Se o candidato cumpre o isomorfismo estrutural que R2.2 exige do equivalente."""
-    return (
-        candidato.id != praticado.id
-        and candidato.habilidade_alvo == praticado.habilidade_alvo
-        and candidato.dificuldade == praticado.dificuldade
-        and candidato.enunciado != praticado.enunciado
-    )
-
-
-def _transferencia_qualifica(praticado: Item, candidato: Item) -> bool:
-    """Se o candidato é item de transferência da mesma habilidade alvo (R2.2)."""
-    return (
-        candidato.id != praticado.id
-        and candidato.habilidade_alvo == praticado.habilidade_alvo
-        and candidato.transferencia
-    )
-
-
 def _verificar_associacoes(
     itens: Sequence[Item], relacoes: Sequence[_RelacaoLida], por_id: Mapping[str, Item], locais: Mapping[str, _Leitor]
 ) -> None:
@@ -1118,8 +1101,8 @@ def _verificar_associacoes(
             continue
         leitor = locais[item.id]
         for associacao, qualifica in (
-            (EQUIVALENTE, _equivalente_qualifica),
-            (TRANSFERENCIA, _transferencia_qualifica),
+            (EQUIVALENTE, equivalente_qualifica),
+            (TRANSFERENCIA, transferencia_qualifica),
         ):
             candidatos = _candidatos(item, relacoes, associacao, por_id)
             if not any(qualifica(item, candidato) for candidato in candidatos):
