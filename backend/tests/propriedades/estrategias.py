@@ -58,7 +58,7 @@ e que isso atravessa a carga nos três tipos de gabarito é o que
 from __future__ import annotations
 
 import string
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from types import MappingProxyType
@@ -67,6 +67,7 @@ from typing import Final
 from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn, SearchStrategy
 
+from adia.nucleo.itens.banco import TRANSFERENCIAS_NO_CONJUNTO
 from adia.nucleo.itens.carregador import CargaConcluida
 from adia.nucleo.itens.modelo import (
     DIFICULDADE_MAXIMA,
@@ -79,7 +80,7 @@ from adia.nucleo.itens.modelo import (
     equivalente_qualifica,
     transferencia_qualifica,
 )
-from adia.tipos import Condicao, Etapa, Indisponivel, Medida, Nivel
+from adia.tipos import ETAPAS_SEM_IA, Condicao, Etapa, Indisponivel, Medida, Nivel
 
 # --------------------------------------------------------------------------- #
 # Constantes de geração
@@ -1068,3 +1069,392 @@ def pedidos_do_desafio(draw: DrawFn, maximo_de_praticados: int = MAXIMO_DE_PRATI
         ja_apresentados=frozenset(ja_apresentados),
         semente=draw(st.integers(min_value=0, max_value=SEMENTE_MAXIMA)),
     )
+
+
+# --------------------------------------------------------------------------- #
+# Sessão completa: o banco que atravessa as quatro etapas sem IA
+# --------------------------------------------------------------------------- #
+#
+# `pedidos_do_desafio` acima gera **um** ciclo. A Propriedade 32 precisa da sessão inteira —
+# linha de base, os três ciclos de R12.1 e o teste de retenção —, porque o que ela persegue não
+# é a cardinalidade de um pedido e sim a exclusão de R2.7 **entre** etapas: o item apresentado
+# numa etapa sem IA não reaparece em outra. Isso só é afirmável sobre uma sequência de pedidos
+# com `ja_apresentados` acumulado do começo ao fim.
+#
+# A estrutura mora aqui pela fronteira que P29 declarou e que `pedidos_do_desafio` exerceu: o
+# que é exigência do **banco** sobe para este módulo, e o que é substância da propriedade fica
+# no arquivo dela. Banco de sessão é exigência do banco — R2.2 e R2.6 pedem equivalente e
+# transferência declarados para cada item praticado, R12.1 fixa os três ciclos, e a aritmética
+# do mínimo viável abaixo é consequência de R2.3 e R2.7, não de P32. O `Gestor_de_Sessão` de
+# §3.3 (tarefa 6.1) consome banco desta forma, e as Propriedades 34 e 35 com ele. O que **não**
+# sobe é a simulação do protocolo nem a mutação para baixo do mínimo viável: a primeira é o
+# oráculo de P32, a segunda é a ênfase dela.
+#
+# ## A aritmética do mínimo viável
+#
+# Com `c` ciclos, `p` itens praticados por ciclo, `b` itens na linha de base e `d = p + 1` itens
+# no conjunto do desafio (R2.3: um equivalente por praticado mais um de transferência), o
+# consumo das etapas sem IA de uma sessão é
+#
+#     b  +  c · d  +  r          com  r = d  (R12.4: a retenção reusa a estrutura do pós-teste)
+#
+# e R2.7 proíbe que qualquer desses itens seja reaproveitado em outra etapa sem IA. Logo o banco
+# mínimo é aquele em que o consumo **esgota** o banco, e ele se reparte em dois reservatórios,
+# porque equivalente e item de transferência não são intercambiáveis — R2.9 recusa o item
+# marcado `transferencia = true` declarado isomorfo a um praticado:
+#
+#     pool sem IA (não-transferência) :  b + c · p + r
+#     itens de transferência          :  c                 (um por ciclo; R2.7 proíbe o reuso)
+#
+# A soma dos dois é exatamente o consumo, de modo que no banco mínimo **todo** item sem IA é
+# apresentado uma vez e nenhum sobra. É o banco em que nenhuma etapa tem folga — e o único em
+# que um defeito de acúmulo de `ja_apresentados` aparece, porque num banco folgado a etapa
+# seguinte encontra candidato de qualquer forma e a propriedade passa sem exercitar R2.7.
+#
+# ## Onde o aperto cai, e por que é a retenção
+#
+# O pool sem IA é um só, compartilhado pelas três etapas que o consomem, e os itens dele
+# declaram as **três** etapas sem IA executáveis. É deliberadamente mais adversário que
+# `data/itens/`, onde os conjuntos são disjuntos por declaração: com o pool compartilhado, a
+# única coisa que mantém as etapas disjuntas é R2.7. E como a retenção é a **última** a pedir,
+# ela recebe exatamente o que sobrou — `r` itens, nem um a mais. É o caso delicado que §5.6
+# nomeia: a retenção reusa a estrutura do pós-teste sem poder reusar os itens.
+#
+# Os itens de transferência declaram **só** o desafio independente, e isso mantém os dois
+# reservatórios separados: um item de transferência elegível na linha de base faria a etapa
+# inicial comer do orçamento dos ciclos, e aí a viabilidade do banco mínimo passaria a depender
+# de qual item a linha de base escolheu. A composição do conjunto da retenção — quantos dos `r`
+# itens dela são de transferência — é decisão do `Gestor_de_Sessão` (tarefa 6.2) e não do banco,
+# que para a retenção oferece uma operação só, `elegiveis_sem_ia`.
+
+CICLOS_DO_PROTOCOLO: Final = 3
+"""Ciclos de prática assistida e desafio independente numa sessão (R12.1).
+
+Três, e o terceiro é o que R12.3 rotula como pós-teste — rótulo sobre o conjunto sem IA daquele
+ciclo, **não** uma quarta chamada ao banco. Ver `adia.tipos.CICLO_DO_POSTESTE`, que é onde o
+número do ciclo rotulado mora no código de produção.
+"""
+
+MAXIMO_DE_PRATICADOS_POR_CICLO: Final = 2
+"""Teto de itens praticados por ciclo na sessão gerada.
+
+Um é o ciclo mínimo e o alvo do encolhimento; dois é o que torna afirmável que os equivalentes
+de um mesmo ciclo são distintos entre si. Acima de dois nenhuma invariante nova de P32 aparece —
+a cardinalidade do conjunto do desafio é de P33, que vai a três —, e cada praticado acrescenta
+dois itens gerados ao banco (ele e a vaga de equivalente que o pool precisa ter), em três
+ciclos.
+"""
+
+MAXIMO_DA_LINHA_DE_BASE: Final = 2
+"""Teto de itens da linha de base na sessão gerada.
+
+Independente do tamanho do ciclo de propósito: a linha de base mede proficiência antes da
+intervenção e nada no protocolo amarra o tamanho dela ao do desafio. Variá-la é metade do que dá
+ao banco o **tamanho variável** que §5.6 pede; a outra metade é a folga.
+"""
+
+FOLGA_MAXIMA: Final = 2
+"""Itens excedentes por reservatório, acima do mínimo viável.
+
+A folga é o que separa "banco próximo do mínimo viável" de "banco com sobra": em zero, nenhuma
+etapa tem escolha; acima de zero, a etapa seguinte encontra candidato mesmo quando a anterior
+consumiu o preferido. Dois basta para as duas formas, e cada unidade custa um item gerado.
+"""
+
+ETAPAS_EXECUTAVEIS_SEM_IA: Final = ETAPAS_SEM_IA - frozenset({Etapa.POSTESTE})
+"""As etapas sem IA que de fato consomem itens do banco: linha de base, desafio e retenção.
+
+Derivada de `ETAPAS_SEM_IA` em vez de escrita à mão, e com **uma** subtração: `Etapa.POSTESTE` é
+rótulo do conjunto sem IA do terceiro ciclo (R12.3), não etapa com itens próprios. Nenhum item
+de `data/itens/` declara `posteste`, e `test_nenhum_item_declara_o_posteste` afirma isso sobre o
+banco real; o banco gerado segue a mesma regra. Se `ETAPAS_SEM_IA` ganhar um membro, ele aparece
+aqui sem que ninguém precise lembrar — que é o oposto de uma lista fixa de três etapas.
+"""
+
+ETAPAS_DO_POOL_SEM_IA: Final = frozenset(ETAPAS_EXECUTAVEIS_SEM_IA)
+"""Etapas permitidas de todo item do pool sem IA: as três, em todo item.
+
+É a configuração mais apertada que o banco admite, e é escolhida por isso. Com as três etapas em
+cada item, linha de base, desafio e retenção disputam o **mesmo** universo, e a única coisa que
+os mantém disjuntos é a exclusão de R2.7 — um defeito nela aparece como item repetido, não como
+etapa recusada. O banco real faz o contrário (um item declara uma etapa sem IA só), e a diferença
+é deliberada: lá o que se verifica é o conteúdo, aqui é o código.
+"""
+
+ID_DO_PRATICADO: Final = "p"
+ID_DO_POOL_SEM_IA: Final = "s"
+ID_DA_TRANSFERENCIA: Final = "t"
+"""Prefixos dos identificadores gerados, por papel no banco.
+
+Falantes e sequenciais — `p1`, `s4`, `t2` — e não sorteados, pela razão de §6.3: o que se lê
+primeiro num contraexemplo é o identificador, e `s4` já diz de qual reservatório o item saiu.
+"""
+
+
+@dataclass(frozen=True)
+class SessaoCompleta:
+    """Banco e roteiro de uma sessão inteira do protocolo, na ordem de R12.1.
+
+    Os campos são o que o `BancoDeItens` e o futuro `Gestor_de_Sessão` consomem; as propriedades
+    derivadas são a aritmética do mínimo viável, calculada aqui uma vez em vez de repetida em
+    cada afirmação de quem usa o banco.
+
+    A **folga é derivada**, não armazenada, e isso é o que permite que a mutação de P32 — retirar
+    um item de um reservatório — produza uma `SessaoCompleta` legítima com folga negativa, sem
+    que nada precise ser dito duas vezes. `esta_abaixo_do_minimo` responde pelo banco que vai
+    recusar uma etapa; `e_minimo_viavel`, pelo banco em que nenhuma etapa tem escolha.
+
+    O que o construtor garante: três ciclos, todos do mesmo tamanho e não vazios, nenhum item
+    praticado repetido entre ciclos, linha de base não vazia, reservatórios disjuntos e todo
+    identificador citado presente na carga. O que ele **não** garante é tamanho: banco abaixo do
+    mínimo é um valor válido deste tipo, e dizer o contrário impediria de construí-lo.
+    """
+
+    carga: CargaConcluida
+    habilidade: str
+    ciclos: tuple[tuple[str, ...], ...]
+    na_linha_de_base: int
+    pool_sem_ia: tuple[str, ...]
+    de_transferencia: tuple[str, ...]
+    semente: int
+
+    def __post_init__(self) -> None:
+        """Verifica a forma do roteiro e a coerência dos reservatórios com a carga."""
+        if len(self.ciclos) != CICLOS_DO_PROTOCOLO:
+            raise ValueError(
+                f"o protocolo tem {CICLOS_DO_PROTOCOLO} ciclos (R12.1); o roteiro traz {len(self.ciclos)}."
+            )
+        tamanhos = {len(ciclo) for ciclo in self.ciclos}
+        if tamanhos != {self.praticados_por_ciclo} or self.praticados_por_ciclo < 1:
+            raise ValueError(
+                "todo ciclo pratica a mesma quantidade de itens, e nenhum ciclo é vazio; "
+                f"tamanhos encontrados: {sorted(tamanhos)}."
+            )
+        if self.na_linha_de_base < 1:
+            raise ValueError("a linha de base apresenta ao menos um item (R12.1).")
+        praticados = [identificador for ciclo in self.ciclos for identificador in ciclo]
+        if len(set(praticados)) != len(praticados):
+            raise ValueError("o mesmo item praticado aparece em mais de um ciclo do roteiro.")
+        compartilhados = set(self.pool_sem_ia) & set(self.de_transferencia)
+        if compartilhados:
+            raise ValueError(
+                f"os dois reservatórios sem IA são disjuntos; em ambos: {sorted(compartilhados)}. "
+                "R2.9 recusa o item de transferência declarado isomorfo a um praticado."
+            )
+        conhecidos = set(self.por_id)
+        citados = set(praticados) | set(self.pool_sem_ia) | set(self.de_transferencia)
+        if not citados <= conhecidos:
+            raise ValueError(f"identificador citado e ausente da carga: {sorted(citados - conhecidos)}.")
+
+    @property
+    def por_id(self) -> Mapping[str, Item]:
+        """Itens do banco indexados por identificador."""
+        return MappingProxyType({item.id: item for item in self.carga.itens})
+
+    @property
+    def praticados_por_ciclo(self) -> int:
+        """`p` — itens praticados em cada ciclo."""
+        return len(self.ciclos[0]) if self.ciclos else 0
+
+    @property
+    def no_desafio(self) -> int:
+        """`d = p + 1` — tamanho do conjunto do desafio independente de um ciclo (R2.3)."""
+        return self.praticados_por_ciclo + TRANSFERENCIAS_NO_CONJUNTO
+
+    @property
+    def na_retencao(self) -> int:
+        """`r = d` — itens do teste de retenção, pela estrutura do pós-teste (R12.4)."""
+        return self.no_desafio
+
+    @property
+    def minimo_do_pool_sem_ia(self) -> int:
+        """`b + c · p + r` — itens não-transferência sem os quais alguma etapa é recusada."""
+        return self.na_linha_de_base + CICLOS_DO_PROTOCOLO * self.praticados_por_ciclo + self.na_retencao
+
+    @property
+    def minimo_de_transferencia(self) -> int:
+        """`c` — um item de transferência por ciclo, porque R2.7 proíbe reaproveitar o anterior."""
+        return CICLOS_DO_PROTOCOLO
+
+    @property
+    def folga_do_pool_sem_ia(self) -> int:
+        """Itens do pool além do mínimo. Zero é o mínimo viável; negativo, o banco insuficiente."""
+        return len(self.pool_sem_ia) - self.minimo_do_pool_sem_ia
+
+    @property
+    def folga_de_transferencia(self) -> int:
+        """Itens de transferência além do mínimo, na mesma convenção de sinal."""
+        return len(self.de_transferencia) - self.minimo_de_transferencia
+
+    @property
+    def e_minimo_viavel(self) -> bool:
+        """Se nenhuma etapa sem IA tem folga: o consumo esgota os dois reservatórios."""
+        return self.folga_do_pool_sem_ia == 0 and self.folga_de_transferencia == 0
+
+    @property
+    def esta_abaixo_do_minimo(self) -> bool:
+        """Se algum reservatório não dá para todas as etapas, e uma delas será recusada."""
+        return self.folga_do_pool_sem_ia < 0 or self.folga_de_transferencia < 0
+
+    @property
+    def consumo_sem_ia(self) -> int:
+        """`b + c · d + r` — itens que as etapas sem IA apresentam numa sessão sem recusa."""
+        return self.na_linha_de_base + CICLOS_DO_PROTOCOLO * self.no_desafio + self.na_retencao
+
+    @property
+    def itens_sem_ia(self) -> frozenset[str]:
+        """Todo item do banco elegível em alguma etapa sem IA, nos dois reservatórios."""
+        return frozenset(self.pool_sem_ia) | frozenset(self.de_transferencia)
+
+
+@st.composite
+def sessoes_completas(
+    draw: DrawFn, folga_minima: int = 0, folga_maxima: int = FOLGA_MAXIMA
+) -> SessaoCompleta:
+    """Banco e roteiro de uma sessão que o protocolo atravessa inteira, sem recusa.
+
+    "Sem recusa" é garantido por construção, e não por filtro nem por sorte. Os dois
+    reservatórios têm ao menos o mínimo declarado em `SessaoCompleta`, e três escolhas tornam a
+    satisfazibilidade independente de **qual** candidato cada etapa preferiu:
+
+    - todo item do pool qualifica como equivalente de **todo** item praticado — mesma habilidade
+      alvo, mesma dificuldade, identificador e enunciado distintos (R2.2) —, de modo que o
+      emparelhamento de um ciclo encontra atribuição completa sempre que restarem `p` itens no
+      pool, sem que o gerador precise decidir viabilidade;
+    - os itens do pool são intercambiáveis entre as três etapas que o consomem, porque declaram
+      as três (`ETAPAS_DO_POOL_SEM_IA`). Logo a ordem em que linha de base, ciclos e retenção
+      tomam deles não muda quantos sobram;
+    - os itens de transferência ficam fora do universo das outras etapas, o que impede a linha de
+      base de comer do orçamento dos ciclos.
+
+    `folga_minima` e `folga_maxima` são o controle de **aperto**, e são parâmetro em vez de
+    sorteio fixo porque quem enuncia a propriedade é que decide o regime: `folga_maxima=0` dá o
+    banco no mínimo viável, que é a ênfase de §5.6, e `folga_minima=1` dá o banco com sobra.
+    Deixar os dois ao sorteio uniforme faria o mínimo viável aparecer em um exemplo a cada nove,
+    que é pouco para a forma que a propriedade existe para exercitar.
+
+    A semente de seleção é **sorteada** (R26.3): é ela que decide qual candidato elegível entra
+    quando há mais de um, e verificar uma semente fixa afirmaria a propriedade sobre uma única
+    ordem de preferência.
+
+    Fora de escopo, declarado: item praticado que **também** admite o desafio independente, e com
+    ele a exclusão "praticado neste ciclo" de R2.3 — isso é de P33, que o gera em
+    `pedidos_do_desafio`. Aqui o item praticado declara só a prática assistida, como em
+    `data/itens/`, e o que fica em exercício é a exclusão entre etapas, que é de P32.
+    """
+    if folga_minima > folga_maxima:
+        raise ValueError(f"folga mínima {folga_minima} acima da máxima {folga_maxima}")
+    if folga_minima < 0:
+        raise ValueError(f"a folga mínima do banco gerado não é negativa; pedida: {folga_minima}")
+
+    habilidade = draw(identificadores(tamanho_maximo=TAMANHO_DA_HABILIDADE))
+    dificuldade = draw(dificuldades())
+    por_ciclo = draw(st.integers(min_value=1, max_value=MAXIMO_DE_PRATICADOS_POR_CICLO))
+    na_linha_de_base = draw(st.integers(min_value=1, max_value=MAXIMO_DA_LINHA_DE_BASE))
+    folgas = st.integers(min_value=folga_minima, max_value=folga_maxima)
+    no_pool = (
+        na_linha_de_base
+        + CICLOS_DO_PROTOCOLO * por_ciclo
+        + por_ciclo
+        + TRANSFERENCIAS_NO_CONJUNTO
+        + draw(folgas)
+    )
+    de_transferencia = CICLOS_DO_PROTOCOLO + draw(folgas)
+
+    praticados = [
+        draw(
+            _itens_pareados(
+                f"{ID_DO_PRATICADO}{ordem}",
+                habilidade,
+                dificuldade,
+                frozenset({Etapa.PRATICA_ASSISTIDA}),
+                transferencia=False,
+            )
+        )
+        for ordem in range(1, CICLOS_DO_PROTOCOLO * por_ciclo + 1)
+    ]
+    pool = [
+        draw(
+            _itens_pareados(
+                f"{ID_DO_POOL_SEM_IA}{ordem}",
+                habilidade,
+                dificuldade,
+                ETAPAS_DO_POOL_SEM_IA,
+                transferencia=False,
+            )
+        )
+        for ordem in range(1, no_pool + 1)
+    ]
+    transferencias = [
+        draw(
+            _itens_pareados(
+                f"{ID_DA_TRANSFERENCIA}{ordem}",
+                habilidade,
+                dificuldade,
+                ETAPAS_DO_DESAFIO,
+                transferencia=True,
+            )
+        )
+        for ordem in range(1, de_transferencia + 1)
+    ]
+
+    ciclos = tuple(
+        tuple(draw(st.permutations([item.id for item in praticados[inicio : inicio + por_ciclo]])))
+        for inicio in range(0, len(praticados), por_ciclo)
+    )
+    relacoes = _relacoes_da_sessao(praticados, pool, transferencias, ciclos)
+
+    return SessaoCompleta(
+        carga=carga_ordenada((*praticados, *pool, *transferencias), relacoes),
+        habilidade=habilidade,
+        ciclos=ciclos,
+        na_linha_de_base=na_linha_de_base,
+        pool_sem_ia=tuple(item.id for item in pool),
+        de_transferencia=tuple(item.id for item in transferencias),
+        semente=draw(st.integers(min_value=0, max_value=SEMENTE_MAXIMA)),
+    )
+
+
+def _relacoes_da_sessao(
+    praticados: Sequence[Item],
+    pool: Sequence[Item],
+    transferencias: Sequence[Item],
+    ciclos: Sequence[Sequence[str]],
+) -> tuple[Relacao, ...]:
+    """As associações de R2.2 e R2.6 do banco de sessão, conferidas pelos predicados públicos.
+
+    Cada item praticado é ligado a **todo** item do pool por relação `equivalente`, e ao item de
+    transferência do próprio ciclo por relação `transferencia`. As duas escolhas têm razão:
+
+    - ligar a todo o pool é o que faz o universo de candidatos de um ciclo ser o pool inteiro
+      menos o já apresentado. Com equivalentes privados por praticado, o consumo de um ciclo
+      nunca alcançaria os candidatos do seguinte, e a exclusão de R2.7 ficaria sem efeito
+      observável entre ciclos — que é metade do que P32 existe para verificar;
+    - uma relação `transferencia` por praticado basta para R2.6, e a do próprio ciclo é a que se
+      lê. A montagem do conjunto não consulta essa relação: `_triar_transferencia` toma o
+      universo pela habilidade alvo e pela marca do item (R2.3), e a relação é exigência de
+      carga.
+
+    Nenhum par recebe duas relações, porque os reservatórios são disjuntos — `Relacao` declara
+    que `equivalente` e `transferencia` sobre a mesma dupla são afirmações contraditórias.
+
+    A conferência é por `equivalente_qualifica` e `transferencia_qualifica`, os mesmos predicados
+    que o carregador e o banco aplicam. Reimplementar o critério de R2.2 aqui daria um gerador
+    que concorda consigo mesmo e discorda do código que a propriedade verifica.
+    """
+    relacoes: list[Relacao] = []
+    por_ciclo_do_praticado = {
+        identificador: numero for numero, ciclo in enumerate(ciclos) for identificador in ciclo
+    }
+    for praticado in praticados:
+        for candidato in pool:
+            assert equivalente_qualifica(praticado, candidato), (
+                f"{candidato.id} não qualifica como equivalente de {praticado.id} (R2.2)"
+            )
+            relacoes.append(Relacao(praticado.id, candidato.id, EQUIVALENTE))
+        do_ciclo = transferencias[por_ciclo_do_praticado[praticado.id]]
+        assert transferencia_qualifica(praticado, do_ciclo), (
+            f"{do_ciclo.id} não qualifica como transferência de {praticado.id} (R2.2)"
+        )
+        relacoes.append(Relacao(praticado.id, do_ciclo.id, TRANSFERENCIA))
+    return tuple(relacoes)
