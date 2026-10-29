@@ -62,7 +62,7 @@ from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from types import MappingProxyType
-from typing import Final
+from typing import Final, Protocol
 
 from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn, SearchStrategy
@@ -80,7 +80,15 @@ from adia.nucleo.itens.modelo import (
     equivalente_qualifica,
     transferencia_qualifica,
 )
-from adia.tipos import ETAPAS_SEM_IA, Condicao, Etapa, Indisponivel, Medida, Nivel
+from adia.tipos import (
+    CICLO_DO_POSTESTE,
+    ETAPAS_SEM_IA,
+    Condicao,
+    Etapa,
+    Indisponivel,
+    Medida,
+    Nivel,
+)
 
 # --------------------------------------------------------------------------- #
 # Constantes de geração
@@ -955,7 +963,89 @@ def carga_ordenada(itens_do_banco: tuple[Item, ...], relacoes: tuple[Relacao, ..
     )
 
 
-@dataclass(frozen=True)
+# --------------------------------------------------------------------------- #
+# A forma do contraexemplo: `repr` dos agregados que carregam o banco
+# --------------------------------------------------------------------------- #
+#
+# `PedidoDoDesafio` e `SessaoCompleta` carregam `CargaConcluida` inteira, e o `repr` que o
+# `dataclass` gera despeja todo campo recursivamente: enunciado, quatro dicas, gabarito,
+# variações, termos essenciais e etapas de cada item, vezes até duas dezenas de itens. Medido,
+# são 10 a 38 kB por contraexemplo de sessão, e os maiores passam do teto de 30 kB em que a
+# própria biblioteca avisa que gastou tempo montando um `repr` que não serve para nada.
+#
+# E não serve mesmo: o que estas propriedades afirmam é **quais identificadores** foram
+# apresentados em quais etapas, e tamanho de reservatório. Nenhuma asserção dos oráculos cita o
+# enunciado de um item. Quem precisar do item inteiro o tem pela semente mais a forma, que é o
+# que estes `repr` mostram.
+
+
+class _Impressora(Protocol):
+    """O mínimo do pretty-printer da biblioteca de que `_repr_pretty_` precisa.
+
+    Protocolo em vez de `from hypothesis.vendor.pretty import RepresentationPrinter`: o módulo
+    é uma cópia vendida dentro da biblioteca, e depender do caminho dela acoplaria este arquivo
+    a um detalhe de empacotamento que muda sem aviso. As duas operações usadas são as do
+    protocolo de impressão que o IPython definiu e a biblioteca honra.
+    """
+
+    def text(self, texto: str) -> None:
+        """Escreve texto sem quebrar."""
+        ...
+
+    def break_(self) -> None:
+        """Quebra a linha, respeitando a indentação do nível em que o objeto aparece."""
+        ...
+
+
+def _forma_em_linhas(nome: str, nota: str, linhas: Sequence[str]) -> str:
+    """Chamada de construtor quebrada em uma informação por linha, com uma nota no cabeçalho.
+
+    Uma linha por informação porque é o que se lê num relatório de falha: o `repr` de linha
+    única obriga a contar vírgulas para achar o reservatório que estourou. A nota do cabeçalho é
+    o que se lê primeiro, e é o aperto do banco em palavras.
+
+    A forma é uma chamada de construtor, com os campos reais como argumento e o que é derivado
+    como comentário. Assim o `repr` não mente sobre o que o tipo guarda — `d`, `r` e as folgas
+    são propriedades calculadas, não campos — e continua sendo Python válido, que é o que
+    mantém a saída legível em qualquer leitor que a analise.
+    """
+    corpo = "\n".join(f"    {linha}" for linha in linhas)
+    return f"{nome}(  # {nota}\n{corpo}\n)"
+
+
+def _imprimir_em_linhas(texto: str, impressora: _Impressora) -> None:
+    """Entrega o `repr` ao pretty-printer da biblioteca, uma linha por vez.
+
+    **Sem isto o `__repr__` da classe não chega ao contraexemplo.** A biblioteca não imprime o
+    `repr` do objeto: ela reconhece `dataclass` por `__dataclass_fields__` e despeja todo campo
+    de `init` recursivamente com `getattr`, sem olhar para `__repr__`. É por isso que
+    `repr=False` no decorador e `field(repr=False)` no campo pesado **não** resolvem — os dois
+    mexem no `repr` que o `dataclass` gera, e o relatório de falha não passa por ele.
+
+    O gancho que a biblioteca consulta **antes** do ramo de `dataclass` é `_repr_pretty_`, o
+    protocolo de impressão do IPython. Daí a forma desta correção: `__repr__` escreve a forma,
+    para quem usa `repr` — mensagem de asserção dos oráculos, `print`, log —, e `_repr_pretty_`
+    o repassa linha por linha, para quem lê o contraexemplo. Quem apagar um dos dois perde
+    metade da saída sem que nada fique vermelho.
+    """
+    for indice, linha in enumerate(texto.splitlines()):
+        if indice:
+            impressora.break_()
+        impressora.text(linha)
+
+
+def _conjunto_em_linha(valores: Collection[str]) -> str:
+    """`frozenset` de identificadores em ordem determinística, na forma em que o Python o escreve.
+
+    Ordenado, e não na ordem de iteração do conjunto: contraexemplo que troca de aparência entre
+    duas execuções da mesma semente confunde mais do que ajuda.
+    """
+    if not valores:
+        return "frozenset()"
+    return "frozenset({" + ", ".join(repr(valor) for valor in sorted(valores)) + "})"
+
+
+@dataclass(frozen=True, repr=False)
 class PedidoDoDesafio:
     """Banco com relações declaradas e a solicitação de desafio independente de um ciclo.
 
@@ -979,6 +1069,32 @@ class PedidoDoDesafio:
     def por_id(self) -> Mapping[str, Item]:
         """Itens do banco indexados por identificador, para quem precisa do item praticado."""
         return MappingProxyType({item.id: item for item in self.carga.itens})
+
+    def __repr__(self) -> str:
+        """O pedido pela **forma**: contagens do banco, papéis pelo prefixo, nada do conteúdo.
+
+        O `repr` padrão deste tipo mede 2,4 a 13,6 kB, abaixo do teto em que a biblioteca avisa
+        e bem acima do que alguém lê. O conteúdo do item é irrelevante para diagnosticar P33 —
+        o oráculo dela é sobre **quais** itens o conjunto levou e sobre a cardinalidade de R2.3
+        —, e o papel de cada um está no prefixo do identificador por construção: `p1` praticado,
+        `e1` equivalente privado, `c1` candidato compartilhado, `t1` de transferência.
+        """
+        return _forma_em_linhas(
+            "PedidoDoDesafio",
+            f"{len(self.praticados)} praticado(s), banco de {len(self.carga.itens)} itens "
+            f"e {len(self.carga.relacoes)} relações",
+            (
+                f"habilidade={self.habilidade!r},",
+                f"semente={self.semente},",
+                f"praticados={self.praticados!r},  # na ordem do pedido",
+                f"ja_apresentados={_conjunto_em_linha(self.ja_apresentados)},  # R2.7",
+                f"carga={tuple(item.id for item in self.carga.itens)!r},  # o papel está no prefixo",
+            ),
+        )
+
+    def _repr_pretty_(self, impressora: _Impressora, ciclo: bool) -> None:
+        """A forma acima no contraexemplo, que é onde ela precisa chegar (ver `_imprimir_em_linhas`)."""
+        _imprimir_em_linhas("PedidoDoDesafio(...)" if ciclo else repr(self), impressora)
 
 
 @st.composite
@@ -1191,7 +1307,7 @@ primeiro num contraexemplo é o identificador, e `s4` já diz de qual reservató
 """
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class SessaoCompleta:
     """Banco e roteiro de uma sessão inteira do protocolo, na ordem de R12.1.
 
@@ -1305,6 +1421,67 @@ class SessaoCompleta:
     def itens_sem_ia(self) -> frozenset[str]:
         """Todo item do banco elegível em alguma etapa sem IA, nos dois reservatórios."""
         return frozenset(self.pool_sem_ia) | frozenset(self.de_transferencia)
+
+    @property
+    def _aperto(self) -> str:
+        """O aperto do banco em palavras, que é a primeira coisa a saber num contraexemplo.
+
+        Os três estados são exclusivos por construção: `e_minimo_viavel` exige folga zero nos
+        dois reservatórios e `esta_abaixo_do_minimo` exige folga negativa em algum.
+        """
+        if self.esta_abaixo_do_minimo:
+            return "abaixo do mínimo"
+        if self.e_minimo_viavel:
+            return "mínimo viável"
+        return "com folga"
+
+    def __repr__(self) -> str:
+        """A sessão pela **forma**: o aperto, a aritmética, os papéis e os ciclos — sem conteúdo.
+
+        O `repr` que o `dataclass` gera para este tipo mede 10 a 38 kB, porque despeja
+        `CargaConcluida` inteira, e é o que faz a biblioteca avisar que montou um `repr` grande
+        demais para ser útil. Ele é grande e, pior, não responde nenhuma das perguntas que um
+        contraexemplo de P32 levanta — quais identificadores foram apresentados em quais etapas,
+        e quanta folga cada reservatório tinha.
+
+        O que entra, nessa ordem de leitura: o aperto e o tamanho do banco no cabeçalho; a
+        habilidade e a semente, que são com o que o caso se reproduz; a aritmética do mínimo
+        viável na linha dos ciclos, com os nomes que a seção acima usa (`c`, `p`, `d`, `r`); os
+        praticados de cada ciclo, um ciclo por linha; e os dois reservatórios com tamanho,
+        mínimo e folga de cada um.
+
+        O que não entra: nada de `Item` além do identificador. Nenhum enunciado, dica, gabarito,
+        variação, termo essencial ou tolerância — e o identificador basta porque é curto e
+        falante por construção (`p1`, `s5`, `t1`), e é a única coisa que as asserções dos
+        oráculos citam.
+        """
+        rotulo = ", rotulado pós-teste (R12.3)"
+        ciclos = tuple(
+            f"    {ciclo!r},  # ciclo {numero}{rotulo if numero == CICLO_DO_POSTESTE else ''}"
+            for numero, ciclo in enumerate(self.ciclos, start=1)
+        )
+        return _forma_em_linhas(
+            "SessaoCompleta",
+            f"{self._aperto}; consumo {self.consumo_sem_ia}, banco de "
+            f"{len(self.carga.itens)} itens e {len(self.carga.relacoes)} relações",
+            (
+                f"habilidade={self.habilidade!r},",
+                f"semente={self.semente},",
+                f"na_linha_de_base={self.na_linha_de_base},  # b",
+                f"ciclos=(  # c={len(self.ciclos)}, p={self.praticados_por_ciclo}, "
+                f"d={self.no_desafio}, r={self.na_retencao}",
+                *ciclos,
+                "),",
+                f"pool_sem_ia={self.pool_sem_ia!r},  # {len(self.pool_sem_ia)} itens, "
+                f"mínimo {self.minimo_do_pool_sem_ia}, folga {self.folga_do_pool_sem_ia}",
+                f"de_transferencia={self.de_transferencia!r},  # {len(self.de_transferencia)} itens, "
+                f"mínimo {self.minimo_de_transferencia}, folga {self.folga_de_transferencia}",
+            ),
+        )
+
+    def _repr_pretty_(self, impressora: _Impressora, ciclo: bool) -> None:
+        """A forma acima no contraexemplo, que é onde ela precisa chegar (ver `_imprimir_em_linhas`)."""
+        _imprimir_em_linhas("SessaoCompleta(...)" if ciclo else repr(self), impressora)
 
 
 @st.composite
