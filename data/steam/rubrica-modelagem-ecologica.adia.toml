@@ -1,0 +1,148 @@
+[[rubrica]]
+rubrica_id = "rub-modelagem-ecologica"
+rubrica_versao = 1
+titulo = "Modelagem de uma situação ecológica: modelo, interpretação, hipóteses e recomendação"
+criterios_total = 4
+descricao = """
+Avalia a justificativa escrita do projeto STEAM, e só ela: as partes numéricas são corrigidas automaticamente pela tolerância declarada em cada uma, e não entram nesta pontuação.
+
+Não declara habilidade alvo. Os quatro critérios são sobre a qualidade do raciocínio de modelagem — traduzir a situação, ler o resultado de volta nela, dizer o que foi assumido e recomendar uma providência —, e isso vale para qualquer cenário cuja justificativa peça essas quatro coisas. A ligação com a habilidade é declarada no cenário, que aponta esta rubrica pelo identificador e pela versão.
+
+A avaliação só se conclui com os quatro critérios pontuados. Critério sem pontuação não é zero: é avaliação incompleta, e o registro a recusa.\
+"""
+
+[[rubrica.criterio]]
+criterio = "adequacao_do_modelo"
+descricao = """
+A tradução da situação em equação: que grandezas o texto nomeia, qual delas é a incógnita, e o que a parte fixa e a parte proporcional representam na situação descrita.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "ausente"
+pontos = 0
+descricao = """
+Não há equação nem grandeza desconhecida nomeada, ou há apenas contas soltas sem dizer o que cada número representa.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "inicial"
+pontos = 1
+descricao = """
+Há uma equação, mas ela não corresponde à situação: a parte fixa e a parte proporcional estão trocadas, somadas à grandeza errada, ou a letra escolhida não representa a grandeza que a pergunta pede.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "adequado"
+pontos = 2
+descricao = """
+A equação corresponde à situação, e a letra está declarada junto com a grandeza e a unidade que representa. A parte fixa e a parte proporcional aparecem no lugar certo, mesmo que a escolha não esteja justificada.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "exemplar"
+pontos = 3
+descricao = """
+Além de corresponder à situação, o texto explica por que cada termo está onde está — o que é consumido de todo modo e o que cresce com a decisão da turma — e indica o que mudaria na equação se a situação mudasse.\
+"""
+
+[[rubrica.criterio]]
+criterio = "interpretacao_no_contexto"
+descricao = """
+A leitura do resultado de volta na situação: unidade, ordem de grandeza e viabilidade do que o número afirma sobre a horta e a cisterna.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "ausente"
+pontos = 0
+descricao = """
+O resultado aparece como número solto, sem unidade e sem nenhuma afirmação sobre a horta.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "inicial"
+pontos = 1
+descricao = """
+O resultado recebe unidade, mas a leitura na situação está ausente ou é incompatível com ela — grandeza trocada, valor negativo, ou quantidade que a horta não teria como acomodar — sem que o texto perceba o problema.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "adequado"
+pontos = 2
+descricao = """
+O resultado é lido na situação com a unidade correta, e o texto diz o que ele significa para a irrigação da horta.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "exemplar"
+pontos = 3
+descricao = """
+A leitura inclui a conferência do próprio resultado: examina se a ordem de grandeza faz sentido, se o valor cabe no que a cisterna guarda, e comenta o que aconteceria perto do limite de retirada.\
+"""
+
+[[rubrica.criterio]]
+criterio = "hipoteses_declaradas"
+descricao = """
+As simplificações que o modelo assume e os limites que elas impõem à conclusão, ditas de forma explícita.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "ausente"
+pontos = 0
+descricao = """
+Nenhuma hipótese é mencionada: o modelo aparece como se descrevesse a horta sem nenhuma simplificação.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "inicial"
+pontos = 1
+descricao = """
+Há menção vaga de que algo pode variar, sem dizer o que varia nem o que a variação faria com a resposta.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "adequado"
+pontos = 2
+descricao = """
+Ao menos uma hipótese é dita de forma concreta — consumo constante por metro de canteiro, chuva distribuída ao longo da semana, perda por evaporação desprezada — e identificada como simplificação do modelo.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "exemplar"
+pontos = 3
+descricao = """
+As hipóteses são declaradas e o texto diz em que direção a resposta mudaria se cada uma falhasse, distinguindo a que mais pesa das demais.\
+"""
+
+[[rubrica.criterio]]
+criterio = "recomendacao_sustentada"
+descricao = """
+A providência recomendada à turma e a sustentação dela no próprio modelo, e não em opinião sobre economizar água.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "ausente"
+pontos = 0
+descricao = """
+Não há recomendação, ou há apenas uma opinião geral sobre cuidar da água, sem relação com o que foi calculado.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "inicial"
+pontos = 1
+descricao = """
+Há recomendação, mas ela não decorre do modelo: contraria o que o cálculo mostra, ou repete o enunciado sem acrescentar nenhuma decisão.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "adequado"
+pontos = 2
+descricao = """
+A recomendação é concreta, aplicável pela turma, e se apoia explicitamente no resultado que o texto obteve.\
+"""
+
+[[rubrica.criterio.nivel]]
+nivel = "exemplar"
+pontos = 3
+descricao = """
+A recomendação se apoia no modelo, considera mais de uma alternativa para a horta e diz qual delas prefere e por quê, reconhecendo o que a escola abre mão em cada escolha.\
+"""

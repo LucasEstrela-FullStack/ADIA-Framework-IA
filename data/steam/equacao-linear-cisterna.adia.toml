@@ -1,0 +1,84 @@
+[[cenario]]
+id = "steam-eq-001"
+titulo = "A cisterna da horta da escola"
+habilidade_alvo = "equacao_linear"
+areas = ["ciencias", "engenharia", "matematica"]
+enunciado = """
+A escola instalou uma cisterna que recebe a água da chuva captada no telhado do ginásio e a guarda para a horta. A cisterna comporta 1800 litros e amanhece cheia na segunda-feira.
+
+Duas coisas consomem essa água. A lavagem do piso e das ferramentas retira 80 litros por dia, chova ou não chova. A irrigação retira 15 litros por dia para cada metro de canteiro que for regado, e a horta tem 36 metros de canteiro no total.
+
+Para não secar a cisterna numa semana sem chuva, a turma fixou um limite de retirada: no máximo 350 litros por dia. Com esse limite, a cisterna cheia atende pelo menos cinco dias sem que caia uma gota.
+
+Medindo o pluviômetro e o nível da cisterna, a própria turma estimou que o telhado do ginásio entrega 175 litros de água à cisterna para cada milímetro de chuva registrado.
+
+A água tratada da rede pública custa 8,45 reais o metro cúbico, e um metro cúbico tem 1000 litros.
+
+Responda às partes numéricas e, depois, escreva a justificativa pedida no fim.\
+"""
+
+[[cenario.partes_numericas]]
+parte = "retirada_diaria_total"
+pergunta = """
+Suponha que todos os metros de canteiro da horta sejam regados no mesmo dia. Quanta água sai da cisterna nesse dia, em litros?\
+"""
+unidade = "litros"
+sinonimos_unidade = ["L", "litro"]
+gabarito = "620"
+tolerancia = "0"
+variacoes_gabarito = ["620", "seiscentos e vinte"]
+tamanho_max_resposta = 40
+
+[[cenario.partes_numericas]]
+parte = "metros_dentro_do_limite"
+pergunta = """
+Respeitando o limite diário que a turma fixou, qual é o maior comprimento de canteiro que pode ser regado em um dia, em metros?\
+"""
+unidade = "metros"
+sinonimos_unidade = ["m", "metro"]
+gabarito = "18"
+tolerancia = "0.05"
+variacoes_gabarito = ["18", "dezoito"]
+tamanho_max_resposta = 40
+
+[[cenario.partes_numericas]]
+parte = "chuva_semanal_necessaria"
+pergunta = """
+Se a turma retirar exatamente o limite diário em todos os dias de uma semana, de quanta chuva o telhado precisa captar nessa semana para repor o que saiu da cisterna, em milímetros?\
+"""
+unidade = "milímetros"
+sinonimos_unidade = ["milimetros", "mm"]
+gabarito = "14"
+tolerancia = "0.05"
+variacoes_gabarito = ["14", "catorze", "quatorze"]
+tamanho_max_resposta = 40
+
+[[cenario.partes_numericas]]
+parte = "economia_mensal"
+pergunta = """
+Em um mês, o telhado entregou 12000 litros de água de chuva à cisterna, e toda essa água foi usada na horta em vez da água da rede pública. Quanto a escola deixou de pagar pela água nesse mês, em reais?\
+"""
+unidade = "reais"
+sinonimos_unidade = ["R$", "real"]
+gabarito = "101.40"
+tolerancia = "0.05"
+variacoes_gabarito = ["101,40", "101.4", "101.40"]
+tamanho_max_resposta = 40
+
+[cenario.justificativa]
+pergunta = """
+Escreva, em texto corrido, a recomendação da turma sobre a irrigação da horta. O texto precisa dizer quatro coisas:
+
+que grandeza você representou por letra, e o que a equação que você montou afirma sobre a água da cisterna;
+
+o que a sua resposta significa na horta, e não apenas na equação — compare a retirada de um dia de rega completa com o limite que a turma fixou e diga o que essa comparação muda na rotina da horta;
+
+que hipóteses você assumiu para o modelo valer, por exemplo que o consumo por metro de canteiro não aumenta no calor, que a chuva se distribui ao longo da semana, ou que a cisterna não perde água por evaporação;
+
+qual providência você recomenda à turma, e como ela se sustenta no que você calculou.
+
+Não repita as contas das partes anteriores: o que se avalia aqui é o argumento.\
+"""
+tamanho_max_resposta = 2000
+rubrica_id = "rub-modelagem-ecologica"
+rubrica_versao = 1
