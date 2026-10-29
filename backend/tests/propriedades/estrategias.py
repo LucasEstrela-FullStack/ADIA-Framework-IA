@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import string
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from types import MappingProxyType
 from typing import Final
@@ -67,7 +67,18 @@ from typing import Final
 from hypothesis import strategies as st
 from hypothesis.strategies import DrawFn, SearchStrategy
 
-from adia.nucleo.itens.modelo import DIFICULDADE_MAXIMA, DIFICULDADE_MINIMA, Item, TipoGabarito
+from adia.nucleo.itens.carregador import CargaConcluida
+from adia.nucleo.itens.modelo import (
+    DIFICULDADE_MAXIMA,
+    DIFICULDADE_MINIMA,
+    EQUIVALENTE,
+    TRANSFERENCIA,
+    Item,
+    Relacao,
+    TipoGabarito,
+    equivalente_qualifica,
+    transferencia_qualifica,
+)
 from adia.tipos import Condicao, Etapa, Indisponivel, Medida, Nivel
 
 # --------------------------------------------------------------------------- #
@@ -746,3 +757,314 @@ def bancos(draw: DrawFn, maximo: int) -> tuple[Item, ...]:
         st.lists(itens_carregaveis(), min_size=1, max_size=maximo, unique_by=identificador_de)
     )
     return tuple(do_banco)
+
+
+# --------------------------------------------------------------------------- #
+# Banco com relações declaradas: a entrada de `conjunto_do_desafio`
+# --------------------------------------------------------------------------- #
+#
+# `bancos` acima produz o banco que as propriedades de ida e volta pedem: itens carregáveis
+# **sozinhos**, com `id` distinto, nenhuma relação declarada e `pratica_assistida` fora de
+# `etapas_permitidas`. É também o banco que `conjunto_do_desafio` não tem como atender — sem
+# item praticado não existe ciclo, e sem relação declarada não existe candidato a equivalente.
+#
+# O que segue é o banco da outra forma, com a estrutura que §3.1 consome: itens praticados, um
+# equivalente **privado** para cada um, equivalentes compartilhados entre todos, itens de
+# transferência da habilidade alvo, concorrentes que não devem entrar no conjunto, e as
+# relações declaradas. Ele mora aqui, e não no arquivo da Propriedade 33, pela mesma razão que
+# `bancos` e `identificador_de` subiram de `p29_item_ida_e_volta.py`: a estrutura é exigência do
+# **banco** (R2.2, R2.6), não substância de nenhuma propriedade. A Propriedade 32 (tarefa 3.8)
+# precisa de bancos com esta mesma estrutura para perseguir o item sem IA entre as etapas, e
+# duas construções do mesmo trio divergiriam na primeira correção feita em um lado só — com o
+# preço de sempre, uma propriedade reprovando por banco inválido em vez de pelo defeito que
+# procura. O que **não** sobe é a mutação: as lacunas deliberadas de §5.6 são de quem as
+# enuncia, e ficam no arquivo da Propriedade 33.
+#
+# A construção é conferida com os predicados públicos de `modelo.py` — `equivalente_qualifica` e
+# `transferencia_qualifica`, os mesmos que o carregador e o banco aplicam —, em `assert` dentro
+# do gerador. Reimplementar o critério de R2.2 aqui daria o pior dos dois mundos: um gerador que
+# concorda consigo mesmo e discorda do código que a propriedade verifica.
+
+MAXIMO_DE_PRATICADOS: Final = 3
+"""Teto de itens praticados no ciclo gerado.
+
+Um praticado é o ciclo mínimo e o alvo do encolhimento. Dois é o que torna afirmável "**um**
+equivalente para **cada** praticado", que com um só é indistinguível de "um equivalente". Três é
+o que separa "dois a dois distintos" de "distinto do outro". Acima disso nenhuma invariante nova
+aparece, e cada praticado custa dois itens gerados — ele e o equivalente privado — por exemplo.
+"""
+
+EQUIVALENTES_COMPARTILHADOS: Final = 1
+"""Teto de equivalentes declarados para **todos** os itens praticados ao mesmo tempo.
+
+O candidato compartilhado é o que põe à prova a atribuição dois a dois distinta do banco: só com
+equivalentes privados, qualquer escolha serve e o emparelhamento nunca é exercido. Um basta para
+criar a disputa, e como cada praticado conserva o privado, uma atribuição completa existe
+sempre. É isso que mantém o banco completo **completo** sem que o gerador precise raciocinar
+sobre viabilidade — isto é, sem uma segunda cópia do emparelhamento do banco dentro do teste.
+"""
+
+TRANSFERENCIAS_EXCEDENTES: Final = 1
+"""Itens de transferência além do primeiro, que é o reservado.
+
+O excedente é o que dá à metade "e nenhum outro item" de R2.3 algo a recusar: com um único item
+de transferência no banco, levar todos e levar um são a mesma coisa. O primeiro nunca é marcado
+como já apresentado, e é por isso que o banco completo continua atendendo o pedido.
+"""
+
+SEMENTE_MAXIMA: Final = 2**31 - 1
+"""Teto da semente de seleção sorteada (R26.3).
+
+Sorteada, e não fixa, porque é ela que decide **qual** candidato elegível entra quando há mais de
+um: semente fixa afirmaria a propriedade sobre uma única ordem de preferência. O teto não tem
+significado de domínio — `random.Random` aceita qualquer inteiro — e existe para que o
+contraexemplo traga um número que se lê.
+"""
+
+TAMANHO_DA_HABILIDADE: Final = 8
+"""Teto do nome de habilidade alvo gerado. A habilidade entra em comparação de igualdade e em
+nada mais; o teto curto mantém o contraexemplo legível sem perder a gramática do identificador.
+"""
+
+SUFIXO_DE_OUTRA_HABILIDADE: Final = ".outra"
+"""Sufixo que deriva uma segunda habilidade, distinta da alvo por construção.
+
+Derivada em vez de sorteada de propósito: duas habilidades sorteadas independentemente podem
+colidir, e um concorrente que caísse na habilidade alvo deixaria de ser concorrente. O ponto é
+`PADRAO_DE_IDENTIFICADOR` admitir `.` fora da primeira posição, de modo que o derivado continua
+sendo um identificador válido.
+"""
+
+ETAPAS_DO_DESAFIO: Final = frozenset({Etapa.DESAFIO_INDEPENDENTE})
+"""Etapas permitidas do equivalente e do item de transferência.
+
+A etapa para a qual o conjunto é montado é fixa (`banco.ETAPA_DO_CONJUNTO`), e um candidato que
+não a admitisse seria inelegível por R2.4 e R2.5 — o banco completo deixaria de ser completo.
+"""
+
+ID_CONCORRENTE_SEM_RELACAO: Final = "x.sem_relacao"
+ID_CONCORRENTE_DE_OUTRA_HABILIDADE: Final = "y.outra_habilidade"
+ID_CONCORRENTE_FORA_DA_ETAPA: Final = "z.fora_da_etapa"
+"""Os três concorrentes, cada um inelegível por um motivo diferente (R2.2, R2.3, R2.5).
+
+Identificador falante, e não sorteado: o identificador do concorrente é o que se lê primeiro num
+contraexemplo em que ele apareceu no conjunto, e `x.sem_relacao` diz por que ele não devia estar
+lá onde um `id` sorteado exigiria reconstruir o banco à mão para descobrir.
+
+Cada um fecha uma porta distinta: o primeiro qualifica em tudo menos a relação declarada, o
+segundo é item de transferência de outra habilidade, e o terceiro é item de transferência da
+habilidade alvo que não admite a etapa do desafio.
+"""
+
+
+@st.composite
+def _itens_pareados(
+    draw: DrawFn,
+    identificador: str,
+    habilidade: str,
+    dificuldade: int,
+    etapas: frozenset[Etapa],
+    transferencia: bool,
+) -> Item:
+    """Item do banco pareado, com o papel fixado por quem chama e o resto do domínio sorteado.
+
+    O corpo é `itens`, de modo que gabarito, tolerância, unidade, coleções, incógnita e dicas
+    seguem cobrindo o domínio inteiro; o que esta função fixa são os cinco campos que decidem o
+    **papel** do item no pareamento: identificador, habilidade alvo, dificuldade, etapas
+    permitidas e a marca de transferência.
+
+    O enunciado recebe o identificador como sufixo, e é o que garante a cláusula de enunciado
+    distinto de R2.2 por construção em vez de por sorte: os identificadores são distintos no
+    banco, logo os enunciados também. Sem isso, dois itens sorteados do mesmo conjunto de
+    fragmentos colidiriam, o equivalente deixaria de qualificar e o banco "completo" recusaria o
+    pedido — a propriedade falharia por banco mal construído, não por defeito do banco de itens.
+
+    As coleções saem no tamanho mínimo que preserva o domínio — uma variação de gabarito, um
+    conjunto de termos essenciais —, e é decisão de orçamento: o banco pareado sai com um item
+    completo por posição, até dez por exemplo, e cada elemento de coleção custa um sorteio de
+    texto. O acoplamento que importa segue intacto, porque é `perfis_de_gabarito` que o mantém:
+    tolerância só em numérico, termos essenciais só em textual, sinônimo só com unidade. Quem
+    precisa de coleção grande é a serialização canônica, e ali o banco é outro (`bancos`).
+    """
+    base = draw(itens(conjunto_de_etapas=st.just(etapas), variacoes=1, conjuntos_essenciais=1))
+    return replace(
+        base,
+        id=identificador,
+        habilidade_alvo=habilidade,
+        dificuldade=dificuldade,
+        enunciado=f"{base.enunciado} [{identificador}]",
+        transferencia=transferencia,
+    )
+
+
+@st.composite
+def _concorrentes(draw: DrawFn, habilidade: str, dificuldade: int) -> tuple[Item, ...]:
+    """Itens que o conjunto não deve levar, cada um inelegível por um motivo diferente.
+
+    Sorteados um a um, e não todos ou nenhum, para que o encolhimento chegue ao banco mínimo —
+    um praticado, um equivalente, uma transferência — em vez de arrastar os três concorrentes
+    para dentro de todo contraexemplo.
+    """
+    presentes: list[Item] = []
+    if draw(st.booleans()):
+        presentes.append(
+            draw(
+                _itens_pareados(
+                    ID_CONCORRENTE_SEM_RELACAO, habilidade, dificuldade, ETAPAS_DO_DESAFIO, transferencia=False
+                )
+            )
+        )
+    if draw(st.booleans()):
+        presentes.append(
+            draw(
+                _itens_pareados(
+                    ID_CONCORRENTE_DE_OUTRA_HABILIDADE,
+                    habilidade + SUFIXO_DE_OUTRA_HABILIDADE,
+                    dificuldade,
+                    ETAPAS_DO_DESAFIO,
+                    transferencia=True,
+                )
+            )
+        )
+    if draw(st.booleans()):
+        presentes.append(
+            draw(
+                _itens_pareados(
+                    ID_CONCORRENTE_FORA_DA_ETAPA,
+                    habilidade,
+                    dificuldade,
+                    frozenset({Etapa.LINHA_DE_BASE}),
+                    transferencia=True,
+                )
+            )
+        )
+    return tuple(presentes)
+
+
+def carga_ordenada(itens_do_banco: tuple[Item, ...], relacoes: tuple[Relacao, ...]) -> CargaConcluida:
+    """Carga na ordem em que o carregador a publica: itens por `id`, relações pela tripla.
+
+    A ordem é contrato de `CargaConcluida`, e não detalhe: é dela que depende o hash do banco na
+    proveniência (§4.3). Quem monta carga em teste — para gerar, ou para mutar o banco gerado —
+    passa por aqui, e assim a entrada do `BancoDeItens` é indistinguível de uma carga de verdade.
+    """
+    return CargaConcluida(
+        itens=tuple(sorted(itens_do_banco, key=identificador_de)),
+        relacoes=tuple(sorted(relacoes, key=lambda relacao: (relacao.item_origem, relacao.item_destino, relacao.tipo))),
+    )
+
+
+@dataclass(frozen=True)
+class PedidoDoDesafio:
+    """Banco com relações declaradas e a solicitação de desafio independente de um ciclo.
+
+    Os cinco campos são exatamente o que `BancoDeItens` e `conjunto_do_desafio` consomem, e a
+    razão de virem juntos é que nenhum deles é verificável sozinho: um banco sem pedido não diz
+    quais itens foram praticados, e um pedido sem banco não diz se há com que atendê-lo.
+
+    `ja_apresentados` é o histórico do participante (R2.7), e no banco completo ele contém apenas
+    itens **dispensáveis** — nunca o equivalente privado de um praticado, nunca o primeiro item
+    de transferência. É o que torna o banco completo um banco que atende o pedido ao mesmo tempo
+    que a exclusão de R2.7 está de fato em exercício.
+    """
+
+    carga: CargaConcluida
+    praticados: tuple[str, ...]
+    habilidade: str
+    ja_apresentados: frozenset[str]
+    semente: int
+
+    @property
+    def por_id(self) -> Mapping[str, Item]:
+        """Itens do banco indexados por identificador, para quem precisa do item praticado."""
+        return MappingProxyType({item.id: item for item in self.carga.itens})
+
+
+@st.composite
+def pedidos_do_desafio(draw: DrawFn, maximo_de_praticados: int = MAXIMO_DE_PRATICADOS) -> PedidoDoDesafio:
+    """Banco **completo** e o pedido que ele atende inteiro: a metade positiva de R2.3.
+
+    "Completo" é afirmação forte, e é garantida por construção, não por filtro nem por sorte:
+
+    - cada item praticado tem um equivalente **privado** — declarado equivalente só dele — que
+      qualifica em R2.2, admite a etapa do desafio e nunca é marcado como já apresentado. Logo
+      uma atribuição completa de equivalentes dois a dois distintos existe sempre, e o
+      emparelhamento máximo do banco a encontra;
+    - a habilidade alvo tem um item de transferência reservado, que nunca é marcado como já
+      apresentado e nunca é candidato a equivalente — a marca `transferencia = true` não aparece
+      em nenhum item ligado por relação `equivalente`, o que também é o que R2.9 exige;
+    - os itens praticados são os do pedido, sem repetição, e a habilidade do pedido é a deles.
+
+    O que varia em volta disso é o que dá substância à propriedade: a quantidade de praticados, o
+    candidato compartilhado que cria disputa, os itens de transferência excedentes, os três
+    concorrentes inelegíveis, o histórico de R2.7 sobre os dispensáveis, a semente de seleção, a
+    ordem do pedido e — por `_itens_pareados` — o domínio inteiro de `Item` em cada item.
+
+    Os itens praticados podem ou não admitir **também** o desafio independente. Quando admitem, o
+    banco declara a cadeia de relações `equivalente` entre praticados vizinhos, e aí cada um é
+    candidato qualificado do outro: é o único jeito de a exclusão "praticado neste ciclo" de R2.3
+    estar em exercício em vez de pressuposta. Sem a etapa, o candidato cairia antes, por R2.5, e a
+    afirmação de que nenhum praticado serve de equivalente de outro seria vazia.
+
+    Fora de escopo, declarado: pedido **incoerente** — praticados de uma habilidade e `habilidade`
+    de outra — e o esgotamento por disputa (`LacunaDoConjunto.DISPUTADO`). O primeiro não é lacuna
+    de banco, e o segundo exigiria do gerador a decisão de viabilidade do emparelhamento, isto é,
+    o algoritmo do banco reescrito no teste. Os dois estão em casos dirigidos em
+    `backend/tests/unidade/test_banco_de_itens.py`.
+    """
+    if maximo_de_praticados < 1:
+        raise ValueError(f"o ciclo gerado tem ao menos um item praticado; teto pedido: {maximo_de_praticados}")
+
+    habilidade = draw(identificadores(tamanho_maximo=TAMANHO_DA_HABILIDADE))
+    dificuldade = draw(dificuldades())
+    quantos = draw(st.integers(min_value=1, max_value=maximo_de_praticados))
+    tambem_no_desafio = draw(st.booleans())
+    compartilhados = draw(st.integers(min_value=0, max_value=EQUIVALENTES_COMPARTILHADOS))
+    excedentes = draw(st.integers(min_value=0, max_value=TRANSFERENCIAS_EXCEDENTES))
+
+    etapas_do_praticado = frozenset({Etapa.PRATICA_ASSISTIDA}) | (
+        ETAPAS_DO_DESAFIO if tambem_no_desafio else frozenset()
+    )
+    praticados = [
+        draw(_itens_pareados(f"p{ordem}", habilidade, dificuldade, etapas_do_praticado, transferencia=False))
+        for ordem in range(1, quantos + 1)
+    ]
+    privados = [
+        draw(_itens_pareados(f"e{ordem}", habilidade, dificuldade, ETAPAS_DO_DESAFIO, transferencia=False))
+        for ordem in range(1, quantos + 1)
+    ]
+    do_pool = [
+        draw(_itens_pareados(f"c{ordem}", habilidade, dificuldade, ETAPAS_DO_DESAFIO, transferencia=False))
+        for ordem in range(1, compartilhados + 1)
+    ]
+    de_transferencia = [
+        draw(_itens_pareados(f"t{ordem}", habilidade, dificuldade, ETAPAS_DO_DESAFIO, transferencia=True))
+        for ordem in range(1, excedentes + 2)
+    ]
+    concorrentes = draw(_concorrentes(habilidade, dificuldade))
+
+    relacoes: list[Relacao] = []
+    for praticado, privado in zip(praticados, privados, strict=True):
+        assert equivalente_qualifica(praticado, privado), f"{privado.id} não qualifica como equivalente"
+        assert transferencia_qualifica(praticado, de_transferencia[0]), "a transferência reservada não qualifica"
+        relacoes.append(Relacao(praticado.id, privado.id, EQUIVALENTE))
+        relacoes.append(Relacao(praticado.id, de_transferencia[0].id, TRANSFERENCIA))
+        for compartilhado in do_pool:
+            assert equivalente_qualifica(praticado, compartilhado), f"{compartilhado.id} não qualifica"
+            relacoes.append(Relacao(praticado.id, compartilhado.id, EQUIVALENTE))
+    for anterior, seguinte in zip(praticados, praticados[1:], strict=False):
+        assert equivalente_qualifica(anterior, seguinte), "a cadeia entre praticados não qualifica"
+        relacoes.append(Relacao(anterior.id, seguinte.id, EQUIVALENTE))
+
+    dispensaveis = [item.id for item in (*do_pool, *de_transferencia[1:], *concorrentes)]
+    ja_apresentados = draw(st.sets(st.sampled_from(dispensaveis))) if dispensaveis else set()
+
+    return PedidoDoDesafio(
+        carga=carga_ordenada(
+            (*praticados, *privados, *do_pool, *de_transferencia, *concorrentes), tuple(relacoes)
+        ),
+        praticados=tuple(draw(st.permutations([praticado.id for praticado in praticados]))),
+        habilidade=habilidade,
+        ja_apresentados=frozenset(ja_apresentados),
+        semente=draw(st.integers(min_value=0, max_value=SEMENTE_MAXIMA)),
+    )
