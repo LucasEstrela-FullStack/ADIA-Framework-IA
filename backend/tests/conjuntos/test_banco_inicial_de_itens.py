@@ -37,12 +37,11 @@ verifica o tamanho do conjunto, que é o que sustenta essa escala.
 
 from __future__ import annotations
 
-import re
-import unicodedata
 from pathlib import Path
 from typing import Final
 
 import pytest
+from vazamento import ocorre_como_token
 
 from adia.nucleo.itens.banco import BancoDeItens, ConjuntoDoDesafio
 from adia.nucleo.itens.carregador import arquivos_de_itens, carregar
@@ -259,42 +258,13 @@ def test_nenhum_item_declara_o_posteste(banco: BancoDeItens) -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _sem_acento(texto: str) -> str:
-    """Texto decomposto e sem marcas combinantes: `três` e `tres` passam a ser a mesma cadeia."""
-    decomposto = unicodedata.normalize("NFD", texto)
-    return "".join(caractere for caractere in decomposto if not unicodedata.combining(caractere))
-
-
-def _normalizar(texto: str) -> str:
-    """Forma de comparação: insensível a caixa **e** a acentuação.
-
-    As duas insensibilidades são a escolha deliberadamente mais forte, e cada uma fecha um
-    vazamento real: `Quatro` no começo de frase, e `três` digitado sem acento. O preço é
-    aceitar falso positivo — uma dica legítima que contenha a palavra do gabarito por outra
-    razão reprova —, e é o preço certo: aqui o falso positivo custa reescrever uma frase, e o
-    falso negativo custa entregar a resposta ao estudante.
-    """
-    return _sem_acento(texto).casefold()
-
-
-def _ocorre_como_token(texto: str, alvo: str) -> bool:
-    """Se o alvo aparece no texto delimitado, isto é, sem letra nem dígito em volta.
-
-    A delimitação é o que separa vazamento de coincidência de dígito: com gabarito `4`, a
-    forma `x = 4` e a forma `4,0` reprovam, e `14` não. Sem ela, qualquer número que contivesse
-    o dígito do gabarito reprovaria, o que tornaria o conjunto declarado inútil por excesso.
-
-    Esta é a forma **literal** de detecção, que é a primeira das várias de R7.2. A normalização
-    numérica completa — separador decimal, separador de milhar, unidade declarada, numeral em
-    palavras, equivalência algébrica dentro da tolerância e expressão aritmética cujo resultado
-    é o gabarito (R7.9) — é da `Guarda_de_Vazamento`, não daqui. O que o banco faz para
-    cooperar com ela é declarar o numeral em palavras entre as `variacoes_gabarito`, de modo que
-    a varredura abaixo já cubra `quatro` além de `4`.
-    """
-    agulha = _normalizar(alvo)
-    if not agulha:
-        return False
-    return re.search(rf"(?<![0-9a-z]){re.escape(agulha)}(?![0-9a-z])", _normalizar(texto)) is not None
+# A forma de comparação — insensível a caixa e a acentuação, exigindo token delimitado — mora
+# em `vazamento.py`, ao lado, porque o conjunto declarado do cenário STEAM
+# (`test_cenario_steam_inicial.py`) faz a mesma pergunta sobre outro conteúdo. Lá está também
+# a razão de cada uma das duas insensibilidades e o que esta varredura **não** cobre: a
+# detecção completa de R7.2 é da `Guarda_de_Vazamento`, não daqui. O que o banco faz para
+# cooperar com ela é declarar o numeral em palavras entre as `variacoes_gabarito`, de modo que
+# a varredura abaixo já cubra `quatro` além de `4`.
 
 
 def _proibidos(item: Item) -> tuple[tuple[str, str], ...]:
@@ -341,11 +311,11 @@ def test_nenhuma_dica_pre_escrita_revela_o_gabarito_do_item(banco: BancoDeItens)
             dicas_varridas += 1
             for campo, proibido in proibidos:
                 comparacoes += 1
-                if _ocorre_como_token(texto, proibido):
+                if ocorre_como_token(texto, proibido):
                     vazamentos.append(f"{item.id} {nivel.name}: contém `{campo}`")
             for indice, conjunto in enumerate(item.termos_essenciais):
                 comparacoes += 1
-                if all(_ocorre_como_token(texto, termo) for termo in conjunto):
+                if all(ocorre_como_token(texto, termo) for termo in conjunto):
                     vazamentos.append(f"{item.id} {nivel.name}: contém `termos_essenciais[{indice}]` inteiro")
 
     assert dicas_varridas == DICAS_POR_ITEM * len(banco.itens)
