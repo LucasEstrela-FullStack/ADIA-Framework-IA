@@ -1236,6 +1236,56 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 
 ---
 
+## D8, D9 e D10 — DSS, confiança média e viés, como implementados (provisório)
+
+- **Data:** 2026-10-30
+- **Decisão:** valores em vigor no código até a decisão de pesquisa correspondente:
+  - **D8:** o DSS conta, por item praticado, os níveis distintos de dica usados (pedir o
+    mesmo nível de novo não conta outra vez) e divide por `4 × itens praticados`, qualquer
+    que seja o teto do ciclo;
+  - **D9:** a confiança média do viés é a média da confiança, de 0 a 10 dividida por 10,
+    sobre todas as respostas do desafio independente do ciclo, transferência incluída;
+  - **D10:** um único viés por ciclo, `confiança média − acerto independente`, calculado em
+    `regra.decidir`. O acerto independente inclui o item de transferência.
+- **Justificativa:** são as leituras mais diretas do `README.md`, e o código precisava de
+  algum valor para rodar. Cada uma muda a decisão da regra em casos de borda; a revisão de
+  2026-10-30 mostrou um exemplo em que incluir a transferência leva o gap de 0,25 a 0,4.
+- **Origem:** R6.3, R9; design §1.5.
+- **Revalidação:** decisões de pesquisa 1, 2 e 3 da revisão de 2026-10-30. Mudar qualquer
+  uma muda a regra e exige nova versão de limiares ou de código registrada aqui.
+
+## D11 — API local sem autenticação
+
+- **Data:** 2026-10-30
+- **Decisão:** a API não tem autenticação. Ela só atende no laço local e só para `Host`
+  conhecido (DO-39), não devolve condição nem desempenho à tela do estudante (DO-41), e o
+  painel do pesquisador fica fora dela (DO-44).
+- **Justificativa:** um piloto numa máquina só, com o estudante diante dela, não tem rede
+  para proteger; autenticação acrescentaria senha a crianças sem reduzir risco real.
+- **Origem:** design §1.5.
+- **Revalidação:** o design lista seis pré-condições para qualquer exposição além da
+  máquina local, mas o documento de design não está neste repositório. Antes de expor a API,
+  recuperar a lista e registrá-la aqui.
+
+## DO-45 — Pendências resolvidas pelo código da fatia vertical
+
+- **Data:** 2026-10-30
+- **Decisão:** saem da lista de pendências, porque o código já as resolve:
+  - arredondamento a quatro casas com meio para cima antes do limiar, e igualdade valendo
+    em `>=` e `<=` (R9.12): `regra.decidir`, com teste;
+  - L4 como teto inicial do primeiro ciclo (R9.10): `Sessao.teto`, nas três condições;
+  - métrica indisponível decide manter, com teto inalterado e evidência incompleta
+    registrada (R9.13): `regra.decidir` e `decisao_ciclo.evidencia_incompleta`;
+  - regra de desempate do separador decimal: a de `motor.interpretar_decimal`, que a guarda
+    usa e completa lendo `1.500` das duas formas (DO-40);
+  - seleção de modelo e remoção dos não selecionados: D14;
+  - mudanças no conjunto da guarda passam a ser registradas como DO-40 manda;
+  - a API recusa subir com banco de itens inválido, nomeando o erro (`Servico.__init__`).
+- **Origem:** revisão de 2026-10-30.
+- **Revalidação:** nenhuma.
+
+---
+
 ## Pendências
 
 Decisões operacionais que o design já identifica mas cujo valor pertence a código ainda não
@@ -1246,24 +1296,13 @@ A lista existe para que nenhuma se perca entre fases.
 
 | Pendência | Origem |
 | --- | --- |
-| `package-lock.json` da raiz sem entradas de dependência enquanto não houver projeto de frontend. A tarefa 11.1 monta o Vite, preenche o bloqueio e acrescenta a entrada de workspace na raiz; só então R1.6 vale também para o lado Node. Ver D7 | R1.6; design §2.3 |
+| `package-lock.json` da raiz continua sem dependências: o frontend tem o próprio bloqueio em `frontend/package-lock.json`, sem entrada de workspace na raiz. Decidir se a raiz vira workspace ou se o bloqueio do frontend basta para R1.6. Ver D7 | R1.6; design §2.3 |
 | Caminho de cache dos binários do navegador e recusa de download na instalação do frontend, para que o download único de [DO-17](#do-17--triagem-de-dependências-que-exigem-rede) não se repita. Entra na tarefa 11.1, quando `frontend/package.json` passa a existir | R24.8; design §6.2 |
 | Triagem de rede do fecho do `package-lock.json`, pelo método de DO-17. A tarefa 11.1 traz o lado Node, e com ele um segundo bloqueio a triar | R24.8, R24.9; design §6.2 |
-| `D8` — base de cálculo de `dicas usadas` no DSS e o máximo de uma dica por nível por item por ciclo | R6.3; design §1.5 |
-| `D9` — base de cálculo da `confiança_média` do viés | design §1.5 |
-| `D10` — um único valor de viés por ciclo, produzido por `MetricasDoCiclo.vies` | design §1.5 |
-| `D11` — API local sem autenticação, com a lista de seis pré-condições de qualquer exposição futura | design §1.5 |
 | `D13` — busca vetorial exaustiva, com gatilho de revisão acima de 50 000 trechos | design §1.5 |
-| Arredondamento a quatro casas com meio para cima **antes** da comparação com limiar, e igualdade no limiar valendo só para `>=` e `<=` | R9.12; design §3.2 |
-| L4 como teto de suporte inicial do primeiro ciclo nas Condições B e C | R9.10 |
-| Tratamento de métrica indisponível por denominador zero: decidir manter, teto inalterado, evidência incompleta registrada | R9.13 |
-| Regra de desempate do separador decimal e a falha fechada no caso ambíguo | R7.11; design §3.11 |
 | `responsavel_id` e `avaliador_id` no formato `PROF-NN`, mantidos fora do banco operacional | R25.3; design §4 |
 | Pesos padrão dos geradores, a metade que resta: banco de itens entre 12 e 60 (tarefa 3.14) e composição `3 / 10 / 20` do corpus sintético (Fase 4). O peso `indisponibilidade = 0,15` está em [DO-27](#do-27--geradores-do-hypothesis-validade-por-construção) | design §6.3 |
-| Seleção de modelo no benchmark e remoção dos candidatos não selecionados, com o tamanho em disco registrado antes da remoção | R20.2, R24.6; design §2.5 |
-| Alterações na composição do conjunto de verificação da guarda, com caso, motivo e responsável | R7.11; design §6.5 |
 | Destino do registro da falha de escrita do próprio log de eventos, fora do banco | design §7 |
-| Recusa da API em servir diante de erro de carga do banco de itens, nomeando arquivo, linha e campo | design §7 |
 | Motivo de indisponibilidade `aguardando_rubrica` do projeto STEAM | design §7 |
 | Janela de inatividade que dispara `sessao_interrompida`, com 45 minutos como ponto de partida | design §7 |
 | Limite global de corpo de requisição, com 64 KB como ponto de partida | design §7 |

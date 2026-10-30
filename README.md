@@ -221,24 +221,24 @@ ADIA-Framework/
 └─ data/       corpus do RAG e cenários STEAM
 ```
 
-## Como usar
+## Papéis
 
-Os comandos para subir o backend e o frontend entram aqui junto com as fases 2 e 3.
-
-Requisitos previstos: Node.js 24, Python 3.14, [uv](https://docs.astral.sh/uv/) e [Ollama](https://ollama.com/).
-
-O pesquisador cria uma turma, escolhe as condições e exporta os dados para análise. O professor acompanha a turma, ajusta os limiares e corrige os projetos STEAM. O estudante percorre o ciclo e acompanha a própria evolução de autonomia.
+- **Pesquisador:** cadastra os códigos dos participantes, ajusta os limiares, acompanha pelo
+  painel e exporta os CSV (`docs/piloto.md`).
+- **Estudante:** entra com o código, percorre o ciclo e, uma semana depois, faz a última
+  parte. Não vê a própria condição nem o próprio desempenho (DO-41).
+- **Professor:** a correção por rubrica do projeto STEAM ainda não existe.
 
 ## Roteiro
 
-- [ ] Fase 0, fundação: README, `.gitignore` e documento de decisões
-- [ ] Fase 1, núcleo: banco de itens, correção, regra de regulação, métricas e sessão, com testes
-- [ ] Fase 2, API: FastAPI, SQLite, registro de eventos e exportação CSV
-- [ ] Fase 3, interface: as cinco telas e o projeto STEAM, com dicas pré-escritas
-- [ ] Fase 4, IA local: benchmark de modelos, sub-agentes, roteador, RAG e guarda
-- [ ] Fase 5, painel do professor: turma, mapa de calor, limiares e rubrica
+- [x] Fase 0, fundação: README, `.gitignore` e documento de decisões
+- [x] Fase 1, núcleo: banco de itens, correção, regra de regulação, métricas e sessão, com testes
+- [x] Fase 2, API: FastAPI, SQLite, registro de eventos e exportação CSV
+- [ ] Fase 3, interface: telas do estudante prontas; falta o projeto STEAM
+- [ ] Fase 4, IA local: benchmark, sub-agentes e guarda prontos; faltam o roteador e o RAG
+- [ ] Fase 5, painel: limiares versionados e painel do pesquisador prontos; faltam mapa de calor e rubrica
 - [ ] Fase 6, validação: alunos simulados, análise de poder e DKT
-- [ ] Fase 7, piloto: teste com estudantes e ajustes
+- [ ] Fase 7, piloto: teste com estudantes e ajustes (roteiro em `docs/piloto.md`)
 
 ## Referências principais
 

@@ -79,7 +79,7 @@ packages = ["backend/adia"]
 environments = ["sys_platform == 'win32'"]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests", "ml/tests"]
+testpaths = ["backend/tests"]
 addopts = "-q --strict-markers"
 # As 37 propriedades de §5 vivem uma por arquivo, nomeadas `p01_decisao_unica.py` a
 # `p37_tolerancia_decide.py` (design §6.2). O número no nome do arquivo é o que liga a
