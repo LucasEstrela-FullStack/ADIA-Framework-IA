@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -204,4 +205,20 @@ def test_migracao_e_idempotente(tmp_path: Path) -> None:
     caminho = tmp_path / "adia.db"
     Repositorio(caminho)
     Repositorio(caminho)
-    assert _linhas(caminho, "PRAGMA user_version") == [(2,)]
+    migracoes = Path(__file__).resolve().parents[2] / "adia" / "persistencia" / "migracoes"
+    assert _linhas(caminho, "PRAGMA user_version") == [(len(list(migracoes.glob("*.sql"))),)]
+
+
+def test_limiar_novo_vale_para_sessao_nova_e_nao_reescreve_a_antiga(tmp_path: Path) -> None:
+    caminho = tmp_path / "adia.db"
+    servico = _servico(caminho)
+    antiga, _ = servico.iniciar(_participante(servico))
+    novo = servico.repositorio.definir_limiares({"independente_fading": Decimal("0.9")})
+    assert (novo.versao, novo.independente_fading, novo.gap_maximo) == ("v2", Decimal("0.9"), Decimal("0.25"))
+    nova, sessao_nova = servico.iniciar(_participante(servico))
+    assert sessao_nova.limiares.versao == "v2"
+    reaberta = _servico(caminho).obter(antiga)
+    assert reaberta.limiares.versao == "readme-v1"
+    with pytest.raises(ValueError):
+        servico.repositorio.definir_limiares({"independente_escalonar": Decimal("0.95")})
+    assert nova != antiga

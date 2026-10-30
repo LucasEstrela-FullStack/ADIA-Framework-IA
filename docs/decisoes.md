@@ -1219,6 +1219,21 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** o banco tem 4 itens de retenção e o pós-teste tem 5 (4 equivalentes mais
   1 de transferência). Igualar a estrutura é a decisão de pesquisa 7, ainda aberta.
 
+## DO-44 — Painel do pesquisador fora da API e limiares versionados
+
+- **Data:** 2026-10-30
+- **Decisão:** o painel é um HTML autocontido gerado por `adia painel` em `exportacoes/`,
+  fora do git e fora da API. Ele mostra, por sessão, condição, situação, linha de base,
+  métricas por ciclo em duas casas (DO-06), a decisão marcada como sombra em A e C, o aviso
+  do IIC (DO-05), a retenção e o aviso de R25.8. Os limiares são editados com
+  `adia limiares --opcao valor`, que grava uma versão nova (`v2`, `v3`...) numa tabela
+  append-only. Cada sessão usa a versão vigente quando foi criada, e o replay usa a mesma.
+- **Justificativa:** a API não tem autenticação (D11) e o estudante usa a mesma máquina; uma
+  rota de painel mostraria a condição e o desempenho a ele. Limiar mudado no meio da coleta
+  sem versão faria sessões antigas mudarem de decisão no replay.
+- **Origem:** R11.8, R25.8; D11, DO-05, DO-06, DO-38.
+- **Revalidação:** painel com edição pelo navegador exige autenticação do pesquisador antes.
+
 ---
 
 ## Pendências

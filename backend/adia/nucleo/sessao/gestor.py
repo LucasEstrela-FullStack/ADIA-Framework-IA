@@ -16,7 +16,13 @@ from dataclasses import dataclass, field
 from adia.nucleo.itens.banco import BancoDeItens, ConjuntoDoDesafio
 from adia.nucleo.itens.modelo import Item
 from adia.nucleo.metricas.calculo import brier, confianca_media, dss, iic, retencao, taxa_de_acerto
-from adia.nucleo.regulacao.regra import DecisaoDeRegulacao, EntradaDeRegulacao, aplicar, decidir
+from adia.nucleo.regulacao.regra import (
+    ConjuntoDeLimiares,
+    DecisaoDeRegulacao,
+    EntradaDeRegulacao,
+    aplicar,
+    decidir,
+)
 from adia.tipos import Condicao, Etapa, Medida, Nivel
 
 CICLOS = 3
@@ -71,6 +77,8 @@ class ResumoSemIA:
 class Sessao:
     banco: BancoDeItens
     condicao: Condicao
+    limiares: ConjuntoDeLimiares = field(default_factory=ConjuntoDeLimiares)
+    """Versão com que a sessão foi criada; o replay usa a mesma."""
     etapa: Etapa | str = Etapa.LINHA_DE_BASE
     ciclo: int = 0
     teto: Nivel = Nivel.L4
@@ -232,7 +240,7 @@ class Sessao:
         assistido = taxa_de_acerto(acertos(Etapa.PRATICA_ASSISTIDA), "nenhum item praticado corrigido")
         independente = taxa_de_acerto(acertos(Etapa.DESAFIO_INDEPENDENTE), "nenhum item do desafio corrigido")
         confianca = confianca_media([r.confianca for r in desafio], "sem respostas no desafio")
-        decisao = decidir(EntradaDeRegulacao(assistido, independente, confianca, self.teto))
+        decisao = decidir(EntradaDeRegulacao(assistido, independente, confianca, self.teto, self.limiares))
         teto_seguinte = aplicar(self.condicao, decisao, self.teto)
         resumo = ResumoDoCiclo(
             ciclo=self.ciclo,

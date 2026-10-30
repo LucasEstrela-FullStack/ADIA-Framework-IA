@@ -88,6 +88,7 @@ from adia.nucleo.itens.carregador import (
 from adia.nucleo.itens.erros import ErroDeCarga
 
 if TYPE_CHECKING:
+    from adia.orquestracao.servico import Servico
     from adia.persistencia.repositorio import Repositorio
 
 # --------------------------------------------------------------------------- #
@@ -827,6 +828,8 @@ COMANDOS: Final = (
     "excluir-dados",
     "benchmark",
     "participantes",
+    "painel",
+    "limiares",
 )
 
 
@@ -959,6 +962,64 @@ def exportar(destino: str | None) -> int:
         )
     _escrever(linhas)
     return CODIGO_BANCO_INVALIDO if resultado.recusadas else CODIGO_OK
+
+
+def _servico_do_projeto() -> tuple[Path, Servico] | None:
+    from adia.ia.cliente_ollama import ClienteOllama
+    from adia.orquestracao.servico import Servico
+    from adia.persistencia.repositorio import BANCO_DE_DADOS, Repositorio
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return None
+    return raiz, Servico(raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(raiz / BANCO_DE_DADOS))
+
+
+def painel() -> int:
+    """Gera o painel do pesquisador em `exportacoes/`, fora do git e fora da API."""
+    from adia.orquestracao.benchmark import hoje
+    from adia.orquestracao.painel import gerar_painel
+
+    alvo = _servico_do_projeto()
+    if alvo is None:
+        return CODIGO_BANCO_INVALIDO
+    raiz, servico = alvo
+    destino = raiz / "exportacoes" / f"painel-{hoje()}.html"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(gerar_painel(servico), encoding="utf-8", newline="\n")
+    _escrever([f"Painel gravado em {destino}. Abra no navegador; ele não sai da máquina."])
+    return CODIGO_OK
+
+
+def limiares(mudancas: dict[str, str]) -> int:
+    """Mostra os limiares vigentes ou grava uma versão nova (vale só para sessões novas)."""
+    from decimal import Decimal, InvalidOperation
+
+    repositorio = _repositorio()
+    if repositorio is None:
+        return CODIGO_BANCO_INVALIDO
+    if mudancas:
+        try:
+            valores = {campo: Decimal(valor.replace(",", ".")) for campo, valor in mudancas.items()}
+            vigente = repositorio.definir_limiares(valores)
+        except (InvalidOperation, ValueError) as erro:
+            _escrever([f"Nada foi gravado: {erro}."])
+            return CODIGO_BANCO_INVALIDO
+        cabecalho = f"Versão {vigente.versao} gravada. Vale para as sessões criadas daqui em diante."
+    else:
+        vigente = repositorio.limiares()
+        cabecalho = f"Limiares vigentes: versão {vigente.versao}."
+    _escrever(
+        [
+            cabecalho,
+            f"  fading com TAI >= {vigente.independente_fading} e |viés| <= {vigente.vies_maximo_fading}",
+            f"  onloading com gap > {vigente.gap_maximo}",
+            f"  escalonar com TAI < {vigente.independente_escalonar}",
+            f"  justificativa com viés > {vigente.vies_justificativa}",
+        ]
+    )
+    return CODIGO_OK
 
 
 def _repositorio() -> Repositorio | None:
@@ -1107,6 +1168,17 @@ def construir_analisador() -> argparse.ArgumentParser:
         help="modelos separados por vírgula (padrão: os candidatos de D14; os ausentes saem como indisponíveis)",
     )
 
+    comandos.add_parser("painel", help="gera o painel do pesquisador em exportacoes/, fora da API")
+    regras = comandos.add_parser("limiares", help="mostra os limiares da regra ou grava uma versão nova")
+    for opcao in (
+        "independente-fading",
+        "gap-maximo",
+        "vies-maximo-fading",
+        "independente-escalonar",
+        "vies-justificativa",
+    ):
+        regras.add_argument(f"--{opcao}", metavar="VALOR", default=None, help="entre 0 e 1")
+
     participantes = comandos.add_parser("participantes", help="cadastro de pseudônimos de participantes")
     subparticipantes = participantes.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
     criar = subparticipantes.add_parser("criar", help="cadastra pseudônimos P-NNNN para uma coorte")
@@ -1138,6 +1210,17 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
     if chave == "guarda verificar":
         diretorio = getattr(espaco, "diretorio", None)
         return guarda_verificar(diretorio if isinstance(diretorio, str) else None)
+    if chave == "painel":
+        return painel()
+    if chave == "limiares":
+        campos = (
+            "independente_fading",
+            "gap_maximo",
+            "vies_maximo_fading",
+            "independente_escalonar",
+            "vies_justificativa",
+        )
+        return limiares({c: getattr(espaco, c) for c in campos if isinstance(getattr(espaco, c), str)})
     if chave == "exportar":
         destino = getattr(espaco, "destino", None)
         return exportar(destino if isinstance(destino, str) else None)

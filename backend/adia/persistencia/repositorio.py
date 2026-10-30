@@ -14,10 +14,12 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from importlib.resources import files
 from pathlib import Path
 from typing import Final, Literal
 
+from adia.nucleo.regulacao.regra import ConjuntoDeLimiares
 from adia.nucleo.sessao.gestor import ResumoDoCiclo, Sessao
 from adia.tipos import Condicao, Etapa, Indisponivel, Medida, Nivel
 
@@ -261,6 +263,48 @@ class Repositorio:
             ],
             {d[0]: DecisaoGravada(d[1], Nivel(d[2]), d[3]) for d in decisoes},
         )
+
+    # ------------------------------------------------------------------ limiares
+
+    _CAMPOS_DE_LIMIAR = (
+        "independente_fading",
+        "gap_maximo",
+        "vies_maximo_fading",
+        "independente_escalonar",
+        "vies_justificativa",
+    )
+
+    def limiares(self, versao: str | None = None) -> ConjuntoDeLimiares:
+        """A versão pedida, ou a vigente (a mais recente) quando ``versao`` é ``None``."""
+        campos = ", ".join(self._CAMPOS_DE_LIMIAR)
+        with self.transacao() as conexao:
+            if versao is None:
+                linha = conexao.execute(
+                    f"SELECT versao, {campos} FROM limiares ORDER BY criado_em DESC, rowid DESC LIMIT 1"
+                ).fetchone()
+            else:
+                linha = conexao.execute(f"SELECT versao, {campos} FROM limiares WHERE versao = ?", (versao,)).fetchone()
+        if linha is None:
+            raise KeyError(f"limiares {versao!r} não existem no banco")
+        valores = dict(zip(self._CAMPOS_DE_LIMIAR, (Decimal(v) for v in linha[1:]), strict=True))
+        return ConjuntoDeLimiares(**valores, versao=linha[0])
+
+    def definir_limiares(self, mudancas: dict[str, Decimal]) -> ConjuntoDeLimiares:
+        """Grava uma versão nova a partir da vigente, com as mudanças pedidas, e a devolve."""
+        atual = self.limiares()
+        valores = {campo: mudancas.get(campo, getattr(atual, campo)) for campo in self._CAMPOS_DE_LIMIAR}
+        if any(not Decimal(0) <= v <= Decimal(1) for v in valores.values()):
+            raise ValueError("todo limiar fica entre 0 e 1")
+        if valores["independente_escalonar"] >= valores["independente_fading"]:
+            raise ValueError("o limiar de escalonar precisa ficar abaixo do de fading")
+        with self.transacao() as conexao:
+            total = conexao.execute("SELECT count(*) FROM limiares").fetchone()[0]
+            versao = f"v{total + 1}"
+            conexao.execute(
+                "INSERT INTO limiares VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (versao, *(str(valores[c]) for c in self._CAMPOS_DE_LIMIAR), _carimbo(_agora())),
+            )
+        return ConjuntoDeLimiares(**valores, versao=versao)
 
     def versao_do_esquema(self) -> int:
         with self.transacao() as conexao:

@@ -2,7 +2,7 @@
 
 **Adaptive Decremental Assistance in AI-Supported Learning.** Protótipo de pesquisa que mede quanto um estudante consegue fazer sozinho depois de praticar com IA e, com base nisso, retira o apoio da IA aos poucos.
 
-> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. Ainda faltam o projeto STEAM, o RAG e o painel do professor.
+> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. O painel do pesquisador sai com `uv run adia painel`. Ainda faltam o projeto STEAM e o RAG.
 
 ## Mapa geral
 
@@ -105,7 +105,7 @@ Ao fim de cada ciclo:
 | independente < 0,4 e gap ≤ 0,25                       | Escalonar   | Teto de ajuda sobe um nível               |
 | Qualquer outro caso                                   | Manter      | Teto inalterado                           |
 
-Com viés acima de 0,25, ou seja, excesso de confiança, o aluno também precisa justificar a resposta. O professor pode editar os limiares no painel.
+Com viés acima de 0,25, ou seja, excesso de confiança, o aluno também precisa justificar a resposta. O pesquisador edita os limiares com `uv run adia limiares`; cada mudança vira uma versão nova, que vale só para as sessões criadas depois.
 
 ```mermaid
 flowchart TD

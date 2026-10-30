@@ -17,7 +17,7 @@ import secrets
 import threading
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -119,10 +119,10 @@ class Servico:
         if existente is not None:
             return existente, self.obter(existente)
         sessao_id = uuid.uuid4().hex[:12]
-        registro = self.repositorio.criar_sessao(
-            sessao_id, participante_id, secrets.randbits(31), self.proveniencia
-        )
-        sessao = Sessao(self.banco, registro.condicao)
+        limiares = self.repositorio.limiares()
+        proveniencia = replace(self.proveniencia, limiares_versao=limiares.versao)
+        registro = self.repositorio.criar_sessao(sessao_id, participante_id, secrets.randbits(31), proveniencia)
+        sessao = Sessao(self.banco, registro.condicao, limiares)
         with self._trava:
             self._sessoes[sessao_id] = sessao
         return sessao_id, sessao
@@ -147,7 +147,9 @@ class Servico:
                 f"Sessão {sessao_id} foi gravada com outro banco de itens "
                 f"({gravada.hash_banco_itens[:12]}, atual {self.proveniencia.hash_banco_itens[:12]})."
             )
-        sessao = Sessao(self._banco(gravada.semente_banco), registro.condicao)
+        sessao = Sessao(
+            self._banco(gravada.semente_banco), registro.condicao, self.repositorio.limiares(gravada.limiares_versao)
+        )
         for evento in eventos:
             if evento.etapa == Etapa.TESTE_RETENCAO and sessao.encerrada:
                 sessao.iniciar_retencao()
