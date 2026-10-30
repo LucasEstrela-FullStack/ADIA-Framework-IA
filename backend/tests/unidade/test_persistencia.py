@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao, RespostaDoModelo
+from adia.ia.cliente_ollama import MODELO_PADRAO, ClienteOllama, FalhaDeGeracao, RespostaDoModelo
 from adia.orquestracao.servico import Servico, SessaoInconsistente, SessaoInexistente
 from adia.persistencia.repositorio import ParticipanteDesconhecido, Repositorio, sortear_condicao
 from adia.tipos import Condicao, Etapa, Nivel
@@ -121,7 +121,7 @@ def test_decisao_de_cada_ciclo_gravada_com_a_proveniencia(tmp_path: Path) -> Non
     assert decisoes == [(1, "fading", aplicada), (2, "fading", aplicada), (3, "fading", aplicada)]
     proveniencia = _linhas(caminho, "SELECT hash_banco_itens, modelo, limiares_versao, concluida_em FROM sessao")
     assert len(str(proveniencia[0][0])) == 64
-    assert proveniencia[0][1:3] == ("llama3.2:1b", "readme-v1")
+    assert proveniencia[0][1:3] == (MODELO_PADRAO, "readme-v1")
     assert proveniencia[0][3] is not None
     assert _linhas(caminho, "SELECT retencao_ate FROM participante")[0][0] is not None
 

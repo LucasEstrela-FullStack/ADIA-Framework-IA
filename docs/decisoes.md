@@ -604,7 +604,7 @@ rede — garantia estrutural, que não depende de ninguém lembrar de exportar v
 | --- | --- | --- |
 | Distribuições do PyPI | `uv sync`, a partir de `uv.lock` | versões e hashes fixados (R1.6); a coleta não resolve dependência |
 | Pacotes do npm | `npm ci`, a partir de `package-lock.json` | mesma razão |
-| Modelos do Ollama | `ollama pull llama3.2:1b` e `bge-m3`, uma vez | depois disso a inferência é local; o serviço escuta em `127.0.0.1:11434` |
+| Modelos do Ollama | `ollama pull qwen2.5:1.5b` e `bge-m3`, uma vez | depois disso a inferência é local; o serviço escuta em `127.0.0.1:11434` |
 | **Binários do navegador dos testes de ponta a ponta** | `npx playwright install chromium`, **uma única vez** | §6.2 fixa Chromium apenas, sem interface. O download é da preparação, não da coleta: depois dele a suíte roda inteiramente offline, contra `vite preview` e a API local. Um único motor respeita o orçamento de disco de §2.5 |
 
 O download dos binários do navegador é o único item desta tabela que o design manda passar
@@ -1151,6 +1151,25 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   183 textos do conjunto mais um texto adversarial de 40 frases com contas, 5 repetições:
   mediana 0,28 ms, p95 0,76 ms, máximo 27 ms, muito abaixo dos 2 s de DO-02.
 
+## D14 — Modelo de geração: `qwen2.5:1.5b` em CPU
+
+- **Data:** 2026-10-30
+- **Decisão:** a API usa `qwen2.5:1.5b` no Ollama local, em CPU (`num_gpu: 0`), com
+  `temperature 0.3`, até 120 tokens e tempo limite de 20 s. Os candidatos não escolhidos
+  foram removidos, com o tamanho em disco registrado antes (R20.2, R24.6): `llama3.2:1b`
+  1,3 GB e `gemma3:1b` 806 MB. Também foram removidos `llama3.2:latest` (2,0 GB) e
+  `mxbai-embed-large` (669 MB), que o projeto não usa. Ficam instalados só `qwen2.5:1.5b`
+  (986 MB) e `bge-m3` (1,2 GB), este para o RAG de DO-11.
+- **Justificativa:** benchmark de 2026-10-30
+  ([relatório](relatorios/benchmark-2026-10-30.md)), 36 dicas L1 a L3 por modelo. O
+  `llama3.2:1b` entregou a resposta em 12 das 36 (a guarda pegou todas) e teve mediana de
+  10,2 s. O `qwen2.5:1.5b` teve 2 vazamentos, mediana de 3,4 s e as amostras mais corretas e
+  fiéis ao nível. O `gemma3:1b` não vazou, mas errou o conceito em L2 e deu L3 vagas. Em CPU
+  porque o offload Vulkan na GPU integrada desta máquina derruba o `llama-server`.
+- **Origem:** R20, R24.6; design §1.5.
+- **Revalidação:** a qualidade foi julgada por 9 amostras por modelo; ler as 36 do relatório
+  antes do piloto. Trocar de modelo exige novo benchmark e muda a proveniência das sessões.
+
 ---
 
 ## Pendências
@@ -1171,7 +1190,6 @@ A lista existe para que nenhuma se perca entre fases.
 | `D10` — um único valor de viés por ciclo, produzido por `MetricasDoCiclo.vies` | design §1.5 |
 | `D11` — API local sem autenticação, com a lista de seis pré-condições de qualquer exposição futura | design §1.5 |
 | `D13` — busca vetorial exaustiva, com gatilho de revisão acima de 50 000 trechos | design §1.5 |
-| `D14` — parâmetros de inferência do `llama3.2:1b` derivados do hardware auditado | design §1.5 |
 | Arredondamento a quatro casas com meio para cima **antes** da comparação com limiar, e igualdade no limiar valendo só para `>=` e `<=` | R9.12; design §3.2 |
 | L4 como teto de suporte inicial do primeiro ciclo nas Condições B e C | R9.10 |
 | Tratamento de métrica indisponível por denominador zero: decidir manter, teto inalterado, evidência incompleta registrada | R9.13 |

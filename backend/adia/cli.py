@@ -1081,8 +1081,8 @@ def construir_analisador() -> argparse.ArgumentParser:
     )
     medida.add_argument(
         "--modelos",
-        default="llama3.2:1b,qwen2.5:1.5b,gemma3:1b",
-        help="modelos separados por vírgula (padrão: os três candidatos de 1 a 1,5B)",
+        default=None,
+        help="modelos separados por vírgula (padrão: os candidatos de D14; os ausentes saem como indisponíveis)",
     )
 
     participantes = comandos.add_parser("participantes", help="cadastro de pseudônimos de participantes")
@@ -1117,7 +1117,10 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         diretorio = getattr(espaco, "diretorio", None)
         return guarda_verificar(diretorio if isinstance(diretorio, str) else None)
     if chave == "benchmark":
-        return benchmark([m.strip() for m in str(espaco.modelos).split(",") if m.strip()])
+        from adia.orquestracao.benchmark import CANDIDATOS_PADRAO
+
+        escolhidos = espaco.modelos.split(",") if isinstance(espaco.modelos, str) else CANDIDATOS_PADRAO
+        return benchmark([m.strip() for m in escolhidos if m.strip()])
     if chave == "excluir-dados":
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
     if chave == "participantes criar":

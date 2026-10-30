@@ -15,8 +15,8 @@ from time import perf_counter
 
 import httpx
 
-MODELO_PADRAO = "llama3.2:1b"
-"""Modelo de D14 (``docs/decisoes.md``)."""
+MODELO_PADRAO = "qwen2.5:1.5b"
+"""Modelo de D14 (``docs/decisoes.md``), escolhido pelo benchmark de 2026-10-30."""
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,7 @@ class ClienteOllama:
                 "prompt": pedido,
                 "stream": False,
                 # num_gpu 0: o offload Vulkan na GPU integrada desta máquina derruba o
-                # llama-server (0xc0000005); em CPU o modelo de 1B roda bem (D14).
+                # llama-server (0xc0000005); em CPU o modelo de 1,5B responde em ~3 s (D14).
                 "options": {"num_predict": 120, "temperature": 0.3, "num_gpu": 0},
             },
             20.0,
