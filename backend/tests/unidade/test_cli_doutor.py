@@ -343,7 +343,6 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
         "migrar",
         "indexar",
         "replay",
-        "exportar",
     }
     for pendente in cli.PENDENTES.values():
         assert pendente.fase.startswith("Fase ")
@@ -357,7 +356,6 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
         ["migrar"],
         ["indexar"],
         ["replay"],
-        ["exportar"],
     ],
 )
 def test_comando_pendente_informa_a_fase_e_falha(invocacao: list[str], capsys: pytest.CaptureFixture[str]) -> None:

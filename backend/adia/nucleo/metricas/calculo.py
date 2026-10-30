@@ -38,3 +38,10 @@ def iic(independente: Medida, assistido: Medida) -> Medida:
     if assistido == 0:
         return Indisponivel("acerto assistido zero")
     return min(Decimal(1), independente / assistido)
+
+
+def brier(pares: Sequence[tuple[int, bool]], motivo: str) -> Medida:
+    """ICM: média de ``(confiança/10 − acerto)²`` sobre respostas corrigidas. 0 é calibração perfeita."""
+    if not pares:
+        return Indisponivel(motivo)
+    return sum(((Decimal(c) / 10 - Decimal(int(a))) ** 2 for c, a in pares), Decimal(0)) / Decimal(len(pares))

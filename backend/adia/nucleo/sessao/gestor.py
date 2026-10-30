@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from adia.nucleo.itens.banco import BancoDeItens, ConjuntoDoDesafio
 from adia.nucleo.itens.modelo import Item
-from adia.nucleo.metricas.calculo import confianca_media, dss, iic, taxa_de_acerto
+from adia.nucleo.metricas.calculo import brier, confianca_media, dss, iic, taxa_de_acerto
 from adia.nucleo.regulacao.regra import DecisaoDeRegulacao, EntradaDeRegulacao, aplicar, decidir
 from adia.tipos import Condicao, Etapa, Medida, Nivel
 
@@ -45,6 +45,8 @@ class ResumoDoCiclo:
     acerto_independente: Medida
     transferencia: Medida
     confianca: Medida
+    brier: Medida
+    """ICM do desafio independente: calibração entre confiança e acerto."""
     dss: Medida
     iic: Medida
     decisao: DecisaoDeRegulacao
@@ -185,6 +187,9 @@ class Sessao:
                 acertos(Etapa.DESAFIO_INDEPENDENTE, transferencia=True), "sem item de transferência"
             ),
             confianca=confianca,
+            brier=brier(
+                [(r.confianca, r.acerto) for r in desafio if r.acerto is not None], "nenhum item do desafio corrigido"
+            ),
             dss=dss(sum(len(r.dicas) for r in pratica), len(pratica)),
             iic=iic(independente, assistido),
             decisao=decisao,

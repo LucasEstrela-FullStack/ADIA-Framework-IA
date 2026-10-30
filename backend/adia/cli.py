@@ -859,12 +859,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "8.3",
         "reconstrói as projeções a partir dos eventos e compara com as vigentes",
     ),
-    "exportar": Pendente(
-        "adia exportar",
-        "Fase 2",
-        "8.8",
-        "exporta os CSV de eventos e de métricas com proveniência embutida",
-    ),
 }
 
 
@@ -942,6 +936,29 @@ def benchmark(modelos: Sequence[str], diretorio: str | None = None) -> int:
     destino.write_text(relatorio(resultados, data), encoding="utf-8", newline="\n")
     _escrever([f"Relatório gravado em {destino}."])
     return CODIGO_OK
+
+
+def exportar(destino: str | None) -> int:
+    """Exporta eventos e métricas de todas as sessões em CSV com proveniência (R16)."""
+    from adia.ia.cliente_ollama import ClienteOllama
+    from adia.orquestracao.exportar import exportar as exportar_sessoes
+    from adia.orquestracao.servico import Servico
+    from adia.persistencia.repositorio import BANCO_DE_DADOS, Repositorio
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return CODIGO_BANCO_INVALIDO
+    servico = Servico(raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(raiz / BANCO_DE_DADOS))
+    resultado = exportar_sessoes(servico, Path(destino) if destino else raiz / "exportacoes")
+    linhas = [f"{resultado.exportadas} sessão(ões) exportada(s) em {resultado.diretorio}."]
+    if resultado.recusadas:
+        linhas.append(
+            "Não reproduzidas com o código e o banco de itens atuais, e por isso não exportadas: "
+            + ", ".join(resultado.recusadas)
+        )
+    _escrever(linhas)
+    return CODIGO_BANCO_INVALIDO if resultado.recusadas else CODIGO_OK
 
 
 def _repositorio() -> Repositorio | None:
@@ -1066,8 +1083,13 @@ def construir_analisador() -> argparse.ArgumentParser:
         )
     )
 
-    for chave in ("indexar", "replay", "exportar"):
+    for chave in ("indexar", "replay"):
         comandos.add_parser(chave, help=_ajuda_pendente(chave))
+
+    exportacao = comandos.add_parser(
+        "exportar", help="exporta os CSV de eventos e de métricas de cada sessão, com proveniência embutida"
+    )
+    exportacao.add_argument("--destino", metavar="CAMINHO", default=None, help="padrão: exportacoes/ na raiz")
 
     exclusao = comandos.add_parser(
         "excluir-dados", help="exclui os dados de um pseudônimo e registra a execução na auditoria (DO-14)"
@@ -1116,6 +1138,9 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
     if chave == "guarda verificar":
         diretorio = getattr(espaco, "diretorio", None)
         return guarda_verificar(diretorio if isinstance(diretorio, str) else None)
+    if chave == "exportar":
+        destino = getattr(espaco, "destino", None)
+        return exportar(destino if isinstance(destino, str) else None)
     if chave == "benchmark":
         from adia.orquestracao.benchmark import CANDIDATOS_PADRAO
 

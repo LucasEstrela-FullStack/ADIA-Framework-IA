@@ -255,6 +255,24 @@ class Repositorio:
             {d[0]: DecisaoGravada(d[1], Nivel(d[2]), d[3]) for d in decisoes},
         )
 
+    def versao_do_esquema(self) -> int:
+        with self.transacao() as conexao:
+            versao: int = conexao.execute("PRAGMA user_version").fetchone()[0]
+        return versao
+
+    def sessoes(self) -> list[tuple[str, str]]:
+        """``(sessao_id, criada_em)`` de todas as sessões, em ordem de criação."""
+        with self.transacao() as conexao:
+            linhas = conexao.execute("SELECT id, criada_em FROM sessao ORDER BY criada_em, id").fetchall()
+        return [(str(i), str(c)) for i, c in linhas]
+
+    def eventos_para_exportar(self, sessao_id: str) -> list[dict[str, object]]:
+        """Linhas completas do registro, em ordem, com os nomes de coluna do banco."""
+        with self.transacao() as conexao:
+            cursor = conexao.execute("SELECT * FROM evento WHERE sessao_id = ? ORDER BY id", (sessao_id,))
+            nomes = [coluna[0] for coluna in cursor.description]
+            return [dict(zip(nomes, linha, strict=True)) for linha in cursor.fetchall()]
+
     # ------------------------------------------------------------------ eventos
 
     @staticmethod

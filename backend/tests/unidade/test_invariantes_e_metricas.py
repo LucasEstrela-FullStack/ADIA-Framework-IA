@@ -12,7 +12,7 @@ import pytest
 from adia.guarda.veredito import revela_resposta
 from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carregar
 from adia.nucleo.itens.modelo import Item, TipoGabarito
-from adia.nucleo.metricas.calculo import confianca_media, dss, iic, proporcao, taxa_de_acerto
+from adia.nucleo.metricas.calculo import brier, confianca_media, dss, iic, proporcao, taxa_de_acerto
 from adia.tipos import Indisponivel, Nivel
 
 _ITENS = Path(__file__).resolve().parents[3] / "data" / "itens"
@@ -73,3 +73,10 @@ def test_guarda_em_item_nao_numerico_so_compara_as_formas_declaradas(item: Item)
 def test_guarda_falha_fechado_com_gabarito_numerico_ilegivel(item: Item) -> None:
     ilegivel = replace(item, gabarito="x≈4", variacoes_gabarito=())
     assert revela_resposta("Pense no que a igualdade pede.", ilegivel)
+
+
+def test_brier_mede_calibracao() -> None:
+    assert brier([(10, True), (0, False)], "-") == Decimal(0)
+    assert brier([(10, False)], "-") == Decimal(1)
+    assert brier([(5, True), (5, False)], "-") == Decimal("0.25")
+    assert isinstance(brier([], "sem respostas"), Indisponivel)

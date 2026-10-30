@@ -1186,6 +1186,22 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** se o pesquisador decidir dar retorno de desempenho, ele entra igual nas
   três condições e com o aviso de R25.8.
 
+## DO-42 — Proveniência em coluna e textos livres fora da exportação
+
+- **Data:** 2026-10-30
+- **Decisão:** as seis últimas colunas de cada CSV repetem a proveniência em todas as linhas.
+  A explicação antes da dica e a justificativa da resposta não são exportadas: só a
+  presença delas (`1` ou `0`). Respostas e dicas entregues saem por inteiro. O ICM é o
+  Brier score do desafio independente, calculado por ciclo.
+- **Justificativa:** linha de comentário some quando o arquivo passa por planilha, e arquivo
+  lateral se separa do CSV; a coluna redundante viaja junto de qualquer recorte. Os textos
+  livres de estudante são onde aparecem nomes e outros dados pessoais, e nenhuma métrica
+  declarada depende deles (R25.6). A resposta é necessária para auditar a correção, e a
+  dica, para auditar a guarda.
+- **Origem:** R16.4, R16.5, R16.8, R25.6; design §4.
+- **Revalidação:** análise qualitativa das justificativas exige decisão nova, com o texto
+  pseudonimizado antes de sair do banco.
+
 ---
 
 ## Pendências
@@ -1211,7 +1227,6 @@ A lista existe para que nenhuma se perca entre fases.
 | Tratamento de métrica indisponível por denominador zero: decidir manter, teto inalterado, evidência incompleta registrada | R9.13 |
 | Regra de desempate do separador decimal e a falha fechada no caso ambíguo | R7.11; design §3.11 |
 | `responsavel_id` e `avaliador_id` no formato `PROF-NN`, mantidos fora do banco operacional | R25.3; design §4 |
-| Proveniência embutida nas seis últimas colunas de cada CSV, com a alternativa rejeitada anotada | R16.8; design §4 |
 | Pesos padrão dos geradores, a metade que resta: banco de itens entre 12 e 60 (tarefa 3.14) e composição `3 / 10 / 20` do corpus sintético (Fase 4). O peso `indisponibilidade = 0,15` está em [DO-27](#do-27--geradores-do-hypothesis-validade-por-construção) | design §6.3 |
 | Seleção de modelo no benchmark e remoção dos candidatos não selecionados, com o tamanho em disco registrado antes da remoção | R20.2, R24.6; design §2.5 |
 | Alterações na composição do conjunto de verificação da guarda, com caso, motivo e responsável | R7.11; design §6.5 |

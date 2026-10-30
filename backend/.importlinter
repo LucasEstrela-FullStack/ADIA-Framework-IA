@@ -39,12 +39,12 @@ type = layers
 # detector barato que roda a cada frase é injetado pelo orquestrador como função de
 # retorno, não importado pela camada de IA.
 #
-# `adia.persistencia` é a terceira irmã: grava e lê o que a orquestração decide, depende só
-# do núcleo e não alcança nem a IA nem a guarda.
+# `adia.persistencia` e `adia.exportacao` são irmãs das duas: gravam, leem e formatam o que
+# a orquestração decide, dependem só do núcleo e não alcançam nem a IA nem a guarda.
 layers =
     adia.api
     adia.orquestracao
-    adia.ia | adia.guarda | adia.persistencia
+    adia.ia | adia.guarda | adia.persistencia | adia.exportacao
     adia.nucleo
     adia.tipos
 
