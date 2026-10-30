@@ -2,7 +2,7 @@
 
 **Adaptive Decremental Assistance in AI-Supported Learning.** Protótipo de pesquisa que mede quanto um estudante consegue fazer sozinho depois de praticar com IA e, com base nisso, retira o apoio da IA aos poucos.
 
-> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git). Ainda faltam o projeto STEAM, a retenção, o RAG e o painel do professor.
+> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. Ainda faltam o projeto STEAM, o RAG e o painel do professor.
 
 ## Mapa geral
 

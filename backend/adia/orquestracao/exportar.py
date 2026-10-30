@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from importlib.metadata import version
 from pathlib import Path
 
@@ -37,7 +38,7 @@ def exportar(servico: Servico, destino: Path) -> ResultadoDaExportacao:
             continue
         registro = lido[0]
         try:
-            ciclos = servico.obter(sessao_id).ciclos
+            reconstruida = servico.obter(sessao_id)
         except SessaoInconsistente:
             recusadas.append(sessao_id)
             continue
@@ -56,7 +57,15 @@ def exportar(servico: Servico, destino: Path) -> ResultadoDaExportacao:
             eventos_csv(sessao, repositorio.eventos_para_exportar(sessao_id), prov), encoding="utf-8", newline=""
         )
         (pasta / f"metricas_{sessao_id}.csv").write_text(
-            metricas_csv(sessao, ciclos, prov), encoding="utf-8", newline=""
+            metricas_csv(
+                sessao,
+                reconstruida.ciclos,
+                reconstruida.resumos_sem_ia(),
+                prov,
+                None if registro.retencao_desvio_horas is None else Decimal(registro.retencao_desvio_horas),
+            ),
+            encoding="utf-8",
+            newline="",
         )
         exportadas += 1
     return ResultadoDaExportacao(pasta, exportadas, tuple(recusadas))

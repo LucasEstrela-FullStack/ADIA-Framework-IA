@@ -50,6 +50,11 @@ export function App() {
   if (estado.item === null) {
     return (
       <Fim
+        estado={estado}
+        aoRetomar={(novo) => {
+          setCicloConcluido(null);
+          setEstado(novo);
+        }}
         aoSair={() => {
           guardarSessao(null);
           setEstado(null);

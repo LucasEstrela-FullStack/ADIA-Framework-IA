@@ -80,7 +80,7 @@ def test_eventos_seguem_o_cabecalho_e_nao_exportam_texto_livre(exportados: Path)
 def test_metricas_ida_e_volta(exportados: Path) -> None:
     colunas, linhas = _ler(exportados, "metricas")
     assert tuple(colunas) == COLUNAS_METRICAS
-    assert len(linhas) == 3 * 9
+    assert len(linhas) == 3 * 9 + 3  # nove por ciclo, mais tai, confiança e brier da linha de base
     reimportadas = ler_metricas(next(exportados.glob("metricas_*.csv")).read_text(encoding="utf-8"))
     por_nome = {(linha["ciclo"], linha["metrica"]): medida_de(linha) for linha in reimportadas}
     assert por_nome[("1", "tai")] == Decimal(1)

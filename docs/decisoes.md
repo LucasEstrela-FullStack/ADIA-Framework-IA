@@ -1202,6 +1202,23 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** análise qualitativa das justificativas exige decisão nova, com o texto
   pseudonimizado antes de sair do banco.
 
+## DO-43 — Teste de retenção na mesma sessão, com a janela de DO-08
+
+- **Data:** 2026-10-30
+- **Decisão:** o teste de retenção reabre a sessão encerrada, como etapa `teste_retencao` sem
+  IA, com os itens de retenção que o participante nunca viu. O estudante entra com o mesmo
+  código; antes de 168 h a tela diz o dia e a hora em que a parte abre, de 168 a 216 h abre,
+  e depois de 216 h abre e grava em `sessao.retencao_desvio_horas` as horas excedentes. A
+  retenção é a TAI do teste de 7 dias dividida pela TAI do pós-teste (desafio do ciclo 3). O
+  prazo de DO-14 é provisório desde o fim dos ciclos e passa a contar da conclusão da
+  retenção. A linha de base também sai na exportação, com TAI, confiança média e Brier.
+- **Justificativa:** uma sessão por participante mantém o replay como fonte única: a
+  retenção é só mais uma etapa reaplicada dos eventos. O prazo provisório garante que o
+  participante que nunca volta também tenha os dados apagados.
+- **Origem:** R12.4, R12.5, R12.6; DO-08, DO-14.
+- **Revalidação:** o banco tem 4 itens de retenção e o pós-teste tem 5 (4 equivalentes mais
+  1 de transferência). Igualar a estrutura é a decisão de pesquisa 7, ainda aberta.
+
 ---
 
 ## Pendências

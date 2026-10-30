@@ -67,7 +67,7 @@ class PedidoDeDica(BaseModel):
     explicacao: str = Field(default="", max_length=LIMITE_DA_EXPLICACAO)
 
 
-def _estado(sessao_id: str, sessao: Sessao) -> dict[str, object]:
+def _estado(sessao_id: str, sessao: Sessao, servico: Servico) -> dict[str, object]:
     """Estado para a tela do estudante.
 
     Sem condição, sem métricas e sem decisão de regulação: o estudante não vê em que grupo
@@ -89,6 +89,17 @@ def _estado(sessao_id: str, sessao: Sessao) -> dict[str, object]:
         "item": None
         if item is None
         else {"id": item.id, "enunciado": item.enunciado, "tamanho_max": item.tamanho_max_resposta},
+        "retencao": _retencao(sessao_id, sessao, servico) if sessao.encerrada else None,
+    }
+
+
+def _retencao(sessao_id: str, sessao: Sessao, servico: Servico) -> dict[str, object]:
+    """Última parte (teste de 7 dias): se já foi feita, se abriu e quando abre."""
+    janela = servico.janela_da_retencao(sessao_id)
+    return {
+        "concluida": sessao.retencao_concluida,
+        "disponivel": janela is not None and janela.disponivel,
+        "abre_em": None if janela is None else janela.abre_em.isoformat(),
     }
 
 
@@ -143,12 +154,12 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
             sessao_id, sessao = servico.iniciar(corpo.participante)
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
-        return _estado(sessao_id, sessao)
+        return _estado(sessao_id, sessao, servico)
 
     @app.get("/api/sessoes/{sessao_id}")
     def ler_sessao(sessao_id: str) -> dict[str, object]:
         try:
-            return _estado(sessao_id, servico.obter(sessao_id))
+            return _estado(sessao_id, servico.obter(sessao_id), servico)
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
 
@@ -156,11 +167,18 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
     def responder(sessao_id: str, corpo: NovaResposta) -> dict[str, object]:
         try:
             _, resumo = servico.responder(sessao_id, corpo.resposta, corpo.confianca, corpo.justificativa)
-            estado = _estado(sessao_id, servico.obter(sessao_id))
+            estado = _estado(sessao_id, servico.obter(sessao_id), servico)
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
         # O acerto não volta para a tela: só o número da rodada que acabou de fechar.
         return {"ciclo_concluido": None if resumo is None else resumo.ciclo, "estado": estado}
+
+    @app.post("/api/sessoes/{sessao_id}/retencao")
+    def iniciar_retencao(sessao_id: str) -> dict[str, object]:
+        try:
+            return _estado(sessao_id, servico.iniciar_retencao(sessao_id), servico)
+        except _ERROS_DE_DOMINIO as erro:
+            raise _http(erro) from erro
 
     @app.post("/api/sessoes/{sessao_id}/dicas")
     def pedir_dica(sessao_id: str, corpo: PedidoDeDica) -> dict[str, object]:

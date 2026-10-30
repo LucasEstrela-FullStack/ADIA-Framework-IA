@@ -45,3 +45,12 @@ def brier(pares: Sequence[tuple[int, bool]], motivo: str) -> Medida:
     if not pares:
         return Indisponivel(motivo)
     return sum(((Decimal(c) / 10 - Decimal(int(a))) ** 2 for c, a in pares), Decimal(0)) / Decimal(len(pares))
+
+
+def retencao(tai_retencao: Medida, tai_posteste: Medida) -> Medida:
+    """Retenção: TAI no teste de 7 dias ÷ TAI no pós-teste (desafio do ciclo 3)."""
+    if not (e_disponivel(tai_retencao) and e_disponivel(tai_posteste)):
+        return Indisponivel("retenção depende da TAI do pós-teste e do teste de retenção")
+    if tai_posteste == 0:
+        return Indisponivel("TAI do pós-teste zero")
+    return tai_retencao / tai_posteste

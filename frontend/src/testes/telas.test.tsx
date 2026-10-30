@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Estado } from "../api/cliente";
 import { App } from "../App";
+import { Fim } from "../paginas/Fim";
 import { Item } from "../paginas/Item";
 
 function estado(mudancas: Partial<Estado> = {}): Estado {
@@ -17,6 +18,7 @@ function estado(mudancas: Partial<Estado> = {}): Estado {
     restantes: 4,
     dicas_usadas: [],
     item: { id: "alg-eq-101", enunciado: "Resolva 2x + 3 = 11.", tamanho_max: 120 },
+    retencao: null,
     ...mudancas,
   };
 }
@@ -119,5 +121,45 @@ describe("retomada da sessão", () => {
     render(<App />);
     expect(await screen.findByLabelText(/Seu código/)).toBeTruthy();
     expect(localStorage.getItem("adia.sessao")).toBeNull();
+  });
+});
+
+describe("fim e última parte", () => {
+  const encerrada = (retencao: Estado["retencao"]) => estado({ item: null, com_ia: false, retencao });
+
+  it("antes da janela diz quando voltar, sem botão de começar", () => {
+    render(
+      <Fim
+        estado={encerrada({ concluida: false, disponivel: false, abre_em: "2026-11-09T09:00:00+00:00" })}
+        aoRetomar={() => {}}
+        aoSair={() => {}}
+      />,
+    );
+    expect(screen.getByText(/A última parte abre em/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Começar a última parte/ })).toBeNull();
+  });
+
+  it("dentro da janela oferece a última parte e abre pela API", async () => {
+    const usuario = userEvent.setup();
+    const fetch = vi.fn((_url: string, _init?: RequestInit) =>
+      respostaJson(estado({ etapa: "teste_retencao", com_ia: false, ciclo: 3 })),
+    );
+    vi.stubGlobal("fetch", fetch);
+    const aoRetomar = vi.fn();
+    render(
+      <Fim
+        estado={encerrada({ concluida: false, disponivel: true, abre_em: "2026-11-09T09:00:00+00:00" })}
+        aoRetomar={aoRetomar}
+        aoSair={() => {}}
+      />,
+    );
+    await usuario.click(screen.getByRole("button", { name: "Começar a última parte" }));
+    expect(fetch.mock.calls[0]?.[0]).toBe("/api/sessoes/s1/retencao");
+    expect(aoRetomar).toHaveBeenCalledOnce();
+  });
+
+  it("depois da última parte só agradece", () => {
+    render(<Fim estado={encerrada({ concluida: true, disponivel: true, abre_em: null })} aoRetomar={() => {}} aoSair={() => {}} />);
+    expect(screen.getByRole("heading").textContent).toBe("Pronto, você terminou!");
   });
 });

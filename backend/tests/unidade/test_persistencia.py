@@ -204,4 +204,4 @@ def test_migracao_e_idempotente(tmp_path: Path) -> None:
     caminho = tmp_path / "adia.db"
     Repositorio(caminho)
     Repositorio(caminho)
-    assert _linhas(caminho, "PRAGMA user_version") == [(1,)]
+    assert _linhas(caminho, "PRAGMA user_version") == [(2,)]

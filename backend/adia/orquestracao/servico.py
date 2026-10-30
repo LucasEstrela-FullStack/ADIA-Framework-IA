@@ -16,7 +16,9 @@ import logging
 import secrets
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 from adia.guarda.veredito import revela_resposta
@@ -28,8 +30,9 @@ from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carr
 from adia.nucleo.itens.modelo import Item
 from adia.nucleo.regulacao.regra import ConjuntoDeLimiares
 from adia.nucleo.sessao.gestor import OperacaoRecusada, ResumoDoCiclo, Sessao
+from adia.nucleo.sessao.retencao import JanelaDaRetencao, janela
 from adia.persistencia.repositorio import DecisaoGravada, Proveniencia, Repositorio
-from adia.tipos import Nivel
+from adia.tipos import Etapa, Nivel
 
 _log = logging.getLogger(__name__)
 
@@ -67,6 +70,7 @@ class Servico:
         repositorio: Repositorio,
         commit: str | None = None,
         semente: int = 20261030,
+        agora: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         arquivos = arquivos_de_itens(diretorio_de_itens)
         carga = carregar(arquivos)
@@ -74,6 +78,7 @@ class Servico:
             # A API recusa servir com banco inválido (design §7), nomeando o erro.
             raise RuntimeError(f"Banco de itens inválido: {carga}")
         self.carga = carga
+        self._agora = agora
         self.cliente = cliente
         self.repositorio = repositorio
         self.proveniencia = Proveniencia(
@@ -144,6 +149,8 @@ class Servico:
             )
         sessao = Sessao(self._banco(gravada.semente_banco), registro.condicao)
         for evento in eventos:
+            if evento.etapa == Etapa.TESTE_RETENCAO and sessao.encerrada:
+                sessao.iniciar_retencao()
             atual = sessao.item_atual
             esperado = (str(sessao.etapa), sessao.ciclo, None if atual is None else atual.id, sessao.teto)
             if esperado != (evento.etapa, evento.ciclo, evento.item_id, evento.teto):
@@ -162,7 +169,40 @@ class Servico:
                 raise SessaoInconsistente(f"Sessão {sessao_id}: o replay recusou um evento gravado: {erro}") from erro
             if resumo is not None:
                 self._conferir(sessao_id, resumo, decisoes.get(resumo.ciclo))
+        if registro.retencao_iniciada_em is not None and sessao.encerrada and not sessao.retencao_concluida:
+            sessao.iniciar_retencao()  # aberta e ainda sem resposta
         return sessao
+
+    def janela_da_retencao(self, sessao_id: str) -> JanelaDaRetencao | None:
+        """Janela de DO-08 da sessão, ou ``None`` enquanto os ciclos não terminaram."""
+        lido = self.repositorio.ler_sessao(sessao_id)
+        if lido is None:
+            raise SessaoInexistente("Sessão inexistente.")
+        concluida = lido[0].concluida_em
+        return None if concluida is None else janela(concluida, self._agora())
+
+    def iniciar_retencao(self, sessao_id: str) -> Sessao:
+        with self._da_sessao(sessao_id):
+            sessao = self.obter(sessao_id)
+            if sessao.etapa == Etapa.TESTE_RETENCAO:
+                return sessao  # já aberta: abrir de novo é retomar
+            situacao = self.janela_da_retencao(sessao_id)
+            if situacao is None:
+                raise OperacaoRecusada("Termine as rodadas antes da última parte.")
+            if not situacao.disponivel:
+                raise OperacaoRecusada(
+                    f"A última parte abre em {situacao.abre_em.astimezone():%d/%m/%Y às %H:%M}. "
+                    "Volte nesse dia com o mesmo código."
+                )
+            try:
+                with self.repositorio.transacao() as conexao:
+                    desvio = None if situacao.desvio_horas is None else str(situacao.desvio_horas)
+                    Repositorio.iniciar_retencao(conexao, sessao_id, self._agora(), desvio)
+                    sessao.iniciar_retencao()
+            except BaseException:
+                self._esquecer(sessao_id)
+                raise
+            return sessao
 
     @staticmethod
     def _conferir(sessao_id: str, resumo: ResumoDoCiclo, gravada: DecisaoGravada | None) -> None:
@@ -197,7 +237,9 @@ class Servico:
                     resumo = sessao.responder(acerto, confianca, justificativa)
                     if resumo is not None:
                         Repositorio.registrar_decisao(conexao, sessao_id, resumo, sessao.condicao)
-                    if sessao.encerrada:
+                    if sessao.encerrada and sessao.retencao_concluida:
+                        Repositorio.concluir_retencao(conexao, sessao_id)
+                    elif sessao.encerrada:
                         Repositorio.concluir(conexao, sessao_id)
             except BaseException:
                 # A memória pode ter avançado sem o registro: o próximo acesso relê do banco.

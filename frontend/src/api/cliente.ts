@@ -9,6 +9,7 @@ export type Estado = {
   restantes: number;
   dicas_usadas: number[];
   item: { id: string; enunciado: string; tamanho_max: number } | null;
+  retencao: { concluida: boolean; disponivel: boolean; abre_em: string | null } | null;
 };
 
 export type Dica = { nivel: number; texto: string; origem: "ia" | "pre-escrita"; motivo: string | null };
@@ -67,6 +68,7 @@ export const api = {
       confianca,
       justificativa,
     }),
+  iniciarRetencao: (id: string) => pedir<Estado>(`/sessoes/${encodeURIComponent(id)}/retencao`, {}),
   dica: (id: string, nivel: number, explicacao: string) =>
     pedir<Dica>(`/sessoes/${encodeURIComponent(id)}/dicas`, { nivel, explicacao }),
 };

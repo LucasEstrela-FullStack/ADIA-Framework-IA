@@ -1,11 +1,12 @@
 """Gestor_de_Sessão: percurso do CognitiveLoop, teto vigente e registro das respostas.
 
 Percurso: linha de base, depois ``CICLOS`` repetições de prática assistida seguida de
-desafio independente, com o gatilho de *fading* ao fim de cada desafio (R12.1). Puro: sem
-relógio, sem rede, sem IA. Quem chama corrige a resposta e informa o acerto.
+desafio independente, com o gatilho de *fading* ao fim de cada desafio (R12.1). O desafio do
+terceiro ciclo é o pós-teste. Dias depois, o teste de retenção reabre a sessão encerrada; a
+janela de tempo é de quem chama (DO-08), porque aqui não há relógio. Puro: sem relógio, sem
+rede, sem IA. Quem chama corrige a resposta e informa o acerto.
 
-shortcut: termina após o terceiro ciclo; projeto STEAM e teste de retenção de 7 dias ficam
-fora do percurso. Acrescentar quando o protocolo da retenção for implementado.
+shortcut: o projeto STEAM ainda fica fora do percurso.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from dataclasses import dataclass, field
 
 from adia.nucleo.itens.banco import BancoDeItens, ConjuntoDoDesafio
 from adia.nucleo.itens.modelo import Item
-from adia.nucleo.metricas.calculo import brier, confianca_media, dss, iic, taxa_de_acerto
+from adia.nucleo.metricas.calculo import brier, confianca_media, dss, iic, retencao, taxa_de_acerto
 from adia.nucleo.regulacao.regra import DecisaoDeRegulacao, EntradaDeRegulacao, aplicar, decidir
 from adia.tipos import Condicao, Etapa, Medida, Nivel
 
@@ -53,6 +54,19 @@ class ResumoDoCiclo:
     teto_seguinte: Nivel
 
 
+@dataclass(frozen=True)
+class ResumoSemIA:
+    """Desempenho de uma etapa sem IA fora dos ciclos: linha de base ou retenção."""
+
+    etapa: Etapa
+    ciclo: int
+    acerto: Medida
+    confianca: Medida
+    brier: Medida
+    retencao: Medida | None = None
+    """Só na retenção: TAI da retenção ÷ TAI do pós-teste."""
+
+
 @dataclass
 class Sessao:
     banco: BancoDeItens
@@ -66,6 +80,7 @@ class Sessao:
     ciclos: list[ResumoDoCiclo] = field(default_factory=list)
     onloading: bool = False
     justificativa_exigida: bool = False
+    retencao_concluida: bool = False
     _dicas_do_item: list[Nivel] = field(default_factory=list)
     _conjunto: ConjuntoDoDesafio | None = None
 
@@ -122,14 +137,55 @@ class Sessao:
             return None
         return self._avancar()
 
+    def iniciar_retencao(self) -> None:
+        """Abre o teste de retenção na sessão encerrada, com itens nunca vistos (R2.7, R12.4)."""
+        if not self.encerrada or self.retencao_concluida or self._na_etapa(Etapa.TESTE_RETENCAO):
+            raise OperacaoRecusada("A última parte não está disponível para este código.")
+        fila = list(self.banco.elegiveis_sem_ia(Etapa.TESTE_RETENCAO, self._apresentados()))
+        if not fila:
+            raise OperacaoRecusada("Não há problemas para a última parte. Avise o pesquisador.")
+        self.etapa = Etapa.TESTE_RETENCAO
+        self.fila = fila
+
+    def _na_etapa(self, etapa: Etapa) -> list[Resposta]:
+        return [r for r in self.respostas if r.etapa == etapa]
+
+    def _sem_ia(self, etapa: Etapa) -> tuple[Medida, Medida, Medida]:
+        respostas = self._na_etapa(etapa)
+        corrigidas = [r for r in respostas if r.acerto is not None]
+        return (
+            taxa_de_acerto([bool(r.acerto) for r in corrigidas], f"nenhum item corrigido em {etapa.value}"),
+            confianca_media([r.confianca for r in respostas], f"sem respostas em {etapa.value}"),
+            brier([(r.confianca, bool(r.acerto)) for r in corrigidas], f"nenhum item corrigido em {etapa.value}"),
+        )
+
+    def resumos_sem_ia(self) -> list[ResumoSemIA]:
+        """Linha de base, sempre, e retenção, quando concluída."""
+        resumos = [ResumoSemIA(Etapa.LINHA_DE_BASE, 0, *self._sem_ia(Etapa.LINHA_DE_BASE))]
+        if self.retencao_concluida:
+            acerto, confianca, calibracao = self._sem_ia(Etapa.TESTE_RETENCAO)
+            posteste = self.ciclos[-1].acerto_independente
+            resumos.append(
+                ResumoSemIA(
+                    Etapa.TESTE_RETENCAO, CICLOS, acerto, confianca, calibracao, retencao(acerto, posteste)
+                )
+            )
+        return resumos
+
     def _apresentados(self) -> frozenset[str]:
         return frozenset(r.item_id for r in self.respostas)
 
     def _avancar(self) -> ResumoDoCiclo | None:
+        if self.etapa == Etapa.TESTE_RETENCAO:
+            self.etapa = FIM
+            self.retencao_concluida = True
+            return None
         if self.etapa == Etapa.DESAFIO_INDEPENDENTE:
             resumo = self._fechar_ciclo()
             if self.ciclo == CICLOS:
+                # Não há ciclo seguinte para onloading nem justificativa valerem.
                 self.etapa = FIM
+                self.onloading = self.justificativa_exigida = False
                 return resumo
             self._iniciar_pratica()
             return resumo

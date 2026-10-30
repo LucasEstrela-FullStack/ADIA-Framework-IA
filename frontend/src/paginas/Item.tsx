@@ -5,6 +5,7 @@ const ETAPAS: Record<string, string> = {
   linha_de_base: "Aquecimento",
   pratica_assistida: "Prática com dicas",
   desafio_independente: "Desafio sem dicas",
+  teste_retencao: "Última parte, sem dicas",
 };
 
 const NIVEIS = [
@@ -74,7 +75,9 @@ export function Item({ estado, cicloConcluido, aoAvancar }: Props) {
       <header className="barra">
         <span>
           <strong>{ETAPAS[estado.etapa] ?? estado.etapa}</strong>
-          {estado.ciclo > 0 && <span className="sutil"> · rodada {estado.ciclo} de 3</span>}
+          {estado.ciclo > 0 && estado.etapa !== "teste_retencao" && (
+            <span className="sutil"> · rodada {estado.ciclo} de 3</span>
+          )}
         </span>
         <span className="sutil">
           {estado.restantes} {estado.restantes === 1 ? "problema restante" : "problemas restantes"}

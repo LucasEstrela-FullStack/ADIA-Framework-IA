@@ -52,6 +52,9 @@ class RegistroDeSessao:
     condicao: Condicao
     semente_atribuicao: int
     proveniencia: Proveniencia
+    concluida_em: datetime | None = None
+    retencao_iniciada_em: datetime | None = None
+    retencao_desvio_horas: str | None = None
 
 
 @dataclass(frozen=True)
@@ -214,7 +217,8 @@ class Repositorio:
         with self.transacao() as conexao:
             linha = conexao.execute(
                 "SELECT participante_id, condicao, semente_atribuicao, semente_banco, hash_banco_itens, "
-                "commit_codigo, modelo, limiares_versao FROM sessao WHERE id = ?",
+                "commit_codigo, modelo, limiares_versao, concluida_em, retencao_iniciada_em, retencao_desvio_horas "
+                "FROM sessao WHERE id = ?",
                 (sessao_id,),
             ).fetchone()
             if linha is None:
@@ -234,6 +238,9 @@ class Repositorio:
             condicao=Condicao(linha[1]),
             semente_atribuicao=linha[2],
             proveniencia=Proveniencia(linha[3], linha[4], linha[5], linha[6], linha[7]),
+            concluida_em=None if linha[8] is None else datetime.fromisoformat(linha[8]),
+            retencao_iniciada_em=None if linha[9] is None else datetime.fromisoformat(linha[9]),
+            retencao_desvio_horas=linha[10],
         )
         return (
             registro,
@@ -345,11 +352,30 @@ class Repositorio:
         )
 
     @staticmethod
-    def concluir(conexao: sqlite3.Connection, sessao_id: str) -> None:
-        """Marca a conclusão e fixa o prazo de retenção do participante (DO-14).
+    def iniciar_retencao(
+        conexao: sqlite3.Connection, sessao_id: str, instante: datetime, desvio_horas: str | None
+    ) -> None:
+        conexao.execute(
+            "UPDATE sessao SET retencao_iniciada_em = ?, retencao_desvio_horas = ? WHERE id = ?",
+            (_carimbo(instante), desvio_horas, sessao_id),
+        )
 
-        shortcut: o prazo conta da conclusão da sessão, porque o teste de retenção de 7 dias
-        ainda não existe; passar a contar da retenção quando ela for implementada.
+    @staticmethod
+    def concluir_retencao(conexao: sqlite3.Connection, sessao_id: str) -> None:
+        """Fim da coleta do participante: o prazo de DO-14 passa a contar daqui."""
+        agora = _agora()
+        conexao.execute("UPDATE sessao SET retencao_concluida_em = ? WHERE id = ?", (_carimbo(agora), sessao_id))
+        conexao.execute(
+            "UPDATE participante SET retencao_ate = ? WHERE id = (SELECT participante_id FROM sessao WHERE id = ?)",
+            (_carimbo(agora + PRAZO_DE_RETENCAO), sessao_id),
+        )
+
+    @staticmethod
+    def concluir(conexao: sqlite3.Connection, sessao_id: str) -> None:
+        """Marca a conclusão dos ciclos e fixa um prazo provisório (DO-14).
+
+        O prazo provisório conta da conclusão dos ciclos, para que o participante que nunca
+        volta para a retenção também tenha os dados apagados; a retenção concluída o refaz.
         """
         agora = _agora()
         conexao.execute("UPDATE sessao SET concluida_em = ? WHERE id = ?", (_carimbo(agora), sessao_id))

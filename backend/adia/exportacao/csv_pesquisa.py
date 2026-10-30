@@ -16,7 +16,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Final
 
-from adia.nucleo.sessao.gestor import ResumoDoCiclo
+from adia.nucleo.sessao.gestor import ResumoDoCiclo, ResumoSemIA
 from adia.tipos import Indisponivel, Medida
 
 CASAS_MINIMAS: Final = 6
@@ -169,9 +169,45 @@ def eventos_csv(sessao: Sessao, eventos: Sequence[Mapping[str, object]], prov: P
     return _escrever(COLUNAS_EVENTOS, linhas)
 
 
-def metricas_csv(sessao: Sessao, ciclos: Sequence[ResumoDoCiclo], prov: ProvenienciaDaExportacao) -> str:
-    """Formato longo: uma linha por métrica de cada ciclo, com a decisão do ciclo ao lado."""
+def metricas_csv(
+    sessao: Sessao,
+    ciclos: Sequence[ResumoDoCiclo],
+    sem_ia: Sequence[ResumoSemIA],
+    prov: ProvenienciaDaExportacao,
+    desvio_horas: Decimal | None = None,
+) -> str:
+    """Formato longo: uma linha por métrica de cada ciclo, com a decisão do ciclo ao lado.
+
+    A linha de base sai com ``ciclo = 0`` e a retenção com o ciclo do pós-teste e a etapa
+    ``teste_retencao``, sem decisão. ``horas_alem_da_janela`` é a marca de DO-08: 0 dentro
+    das 216 h, e as horas excedentes quando a retenção abriu fora de protocolo.
+    """
     linhas: list[dict[str, object]] = []
+
+    def sem_decisao(ciclo: int, etapa: str, nome: str, valor: Medida) -> None:
+        texto, motivo = _medida(valor)
+        linhas.append(
+            {
+                "sessao_id": sessao.id,
+                "participante_id": sessao.participante_id,
+                "condicao": sessao.condicao,
+                "ciclo": ciclo,
+                "etapa": etapa,
+                "metrica": nome,
+                "valor": texto,
+                "indisponivel_motivo": motivo,
+                **_proveniencia(prov, "esquema_versao"),
+            }
+        )
+
+    for resumo_sem_ia in sem_ia:
+        etapa = resumo_sem_ia.etapa.value
+        sem_decisao(resumo_sem_ia.ciclo, etapa, "tai", resumo_sem_ia.acerto)
+        sem_decisao(resumo_sem_ia.ciclo, etapa, "confianca_media", resumo_sem_ia.confianca)
+        sem_decisao(resumo_sem_ia.ciclo, etapa, "brier", resumo_sem_ia.brier)
+        if resumo_sem_ia.retencao is not None:
+            sem_decisao(resumo_sem_ia.ciclo, etapa, "retencao", resumo_sem_ia.retencao)
+            sem_decisao(resumo_sem_ia.ciclo, etapa, "horas_alem_da_janela", desvio_horas or Decimal(0))
     for resumo in ciclos:
         decisao = resumo.decisao
         metricas: tuple[tuple[str, str, Medida], ...] = (
