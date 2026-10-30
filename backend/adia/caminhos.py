@@ -18,6 +18,9 @@ MARCAS_DA_RAIZ: Final = (ARQUIVO_PYTHON, "pyproject.toml")
 #: Diretório do banco de itens, relativo à raiz do projeto (design §2.3, D12).
 DIRETORIO_DE_ITENS: Final = Path("data") / "itens"
 
+#: Conjunto declarado de verificação da guarda (docs/conjunto-verificacao-guarda.md).
+CONJUNTO_DA_GUARDA: Final = Path("data") / "guarda" / "conjunto_verificacao.jsonl"
+
 
 def encontrar_raiz(inicio: Path | None = None) -> Path | None:
     """Sobe a árvore de diretórios até achar as marcas da raiz do projeto.

@@ -72,7 +72,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
-from adia.caminhos import ARQUIVO_PYTHON, DIRETORIO_DE_ITENS, MARCAS_DA_RAIZ, encontrar_raiz
+from adia.caminhos import (
+    ARQUIVO_PYTHON,
+    CONJUNTO_DA_GUARDA,
+    DIRETORIO_DE_ITENS,
+    MARCAS_DA_RAIZ,
+    encontrar_raiz,
+)
 from adia.nucleo.itens.carregador import (
     SUFIXO_DE_ARQUIVO,
     arquivos_de_itens,
@@ -841,12 +847,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "8.1",
         "aplica as migrações e grava a versão vigente de esquema",
     ),
-    "guarda verificar": Pendente(
-        "adia guarda verificar",
-        "Fase 1",
-        "6.8",
-        "roda o conjunto declarado de verificação e reporta os dois portões",
-    ),
     "indexar": Pendente(
         "adia indexar",
         "Fase 4",
@@ -865,12 +865,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "8.8",
         "exporta os CSV de eventos e de métricas com proveniência embutida",
     ),
-    "benchmark": Pendente(
-        "adia benchmark",
-        "Fase 4",
-        "13.11",
-        "mede os candidatos de modelo e produz o relatório do benchmark",
-    ),
 }
 
 
@@ -884,6 +878,70 @@ def relatar_pendente(pendente: Pendente) -> int:
         ]
     )
     return CODIGO_NAO_IMPLEMENTADO
+
+
+def guarda_verificar(diretorio: str | None = None) -> int:
+    """Roda o conjunto declarado e o catálogo pré-escrito contra a guarda (R7.11, DO-03)."""
+    from adia.guarda.conjunto import (
+        ACERTO_LEGITIMO_MINIMO,
+        avaliar_conjunto,
+        casos_do_catalogo,
+        ler_conjunto,
+    )
+
+    alvo = localizar_itens(diretorio)
+    if alvo.problema is not None:
+        _escrever([f"`adia guarda verificar` não pôde ler o banco: {alvo.problema}"])
+        return CODIGO_BANCO_INVALIDO
+    if not alvo.arquivos:
+        return _relatar_banco_vazio(alvo, "verificar")
+    carga = carregar(alvo.arquivos)
+    if isinstance(carga, ErroDeCarga):
+        return _relatar_erro_de_carga(carga)
+    caminho = (encontrar_raiz() or Path.cwd()) / CONJUNTO_DA_GUARDA
+    try:
+        declarados = ler_conjunto(caminho.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as erro:
+        _escrever([f"Conjunto da guarda ilegível em {caminho}: {erro}"])
+        return CODIGO_BANCO_INVALIDO
+    relatorio = avaliar_conjunto(
+        [*declarados, *casos_do_catalogo(carga.itens)], {item.id: item for item in carga.itens}
+    )
+    linhas = [
+        f"Conjunto: {len(declarados)} caso(s) declarado(s) + catálogo pré-escrito.",
+        f"Vazamentos detectados: {relatorio.vp} de {relatorio.vp + relatorio.fn} (exigido: todos).",
+        f"Acerto em dica legítima: {relatorio.acerto_legitimo:.4f} "
+        f"({relatorio.vn} de {relatorio.vn + relatorio.fp}; exigido: {ACERTO_LEGITIMO_MINIMO}).",
+        f"Formas de vazamento cobertas: {', '.join(sorted(relatorio.formas_cobertas)) or 'nenhuma'}.",
+    ]
+    if relatorio.formas_faltantes:
+        linhas.append(f"Faltam casos para: {', '.join(sorted(relatorio.formas_faltantes))}.")
+    linhas.extend(relatorio.erros)
+    linhas.append("Guarda aprovada nos dois portões." if relatorio.aprovado else "Guarda REPROVADA.")
+    _escrever(linhas)
+    return CODIGO_OK if relatorio.aprovado else CODIGO_BANCO_INVALIDO
+
+
+def benchmark(modelos: Sequence[str], diretorio: str | None = None) -> int:
+    """Mede os modelos candidatos e grava o relatório em `docs/relatorios/` (R20)."""
+    from adia.ia.cliente_ollama import ClienteOllama
+    from adia.orquestracao.benchmark import hoje, medir, relatorio
+
+    alvo = localizar_itens(diretorio)
+    if alvo.problema is not None or not alvo.arquivos:
+        _escrever([f"`adia benchmark` não pôde ler o banco: {alvo.problema or 'banco vazio'}"])
+        return CODIGO_BANCO_INVALIDO
+    carga = carregar(alvo.arquivos)
+    if isinstance(carga, ErroDeCarga):
+        return _relatar_erro_de_carga(carga)
+    praticados = [item for item in carga.itens if item.e_praticado]
+    resultados = medir(ClienteOllama, modelos, praticados, lambda linha: _escrever([linha]))
+    data = hoje()
+    destino = (encontrar_raiz() or Path.cwd()) / "docs" / "relatorios" / f"benchmark-{data}.md"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(relatorio(resultados, data), encoding="utf-8", newline="\n")
+    _escrever([f"Relatório gravado em {destino}."])
+    return CODIGO_OK
 
 
 def _repositorio() -> Repositorio | None:
@@ -1001,7 +1059,12 @@ def construir_analisador() -> argparse.ArgumentParser:
 
     guarda = comandos.add_parser("guarda", help="operações sobre a guarda de vazamento")
     subguarda = guarda.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
-    subguarda.add_parser("verificar", help=_ajuda_pendente("guarda verificar"))
+    _acrescentar_diretorio(
+        subguarda.add_parser(
+            "verificar",
+            help="roda o conjunto declarado e o catálogo pré-escrito contra a guarda; não altera nada",
+        )
+    )
 
     for chave in ("indexar", "replay", "exportar"):
         comandos.add_parser(chave, help=_ajuda_pendente(chave))
@@ -1013,7 +1076,14 @@ def construir_analisador() -> argparse.ArgumentParser:
     alvo.add_argument("--participante", metavar="P-NNNN", help="exclui este participante, a pedido")
     alvo.add_argument("--expirados", action="store_true", help="exclui todos com prazo de retenção vencido")
 
-    comandos.add_parser("benchmark", help=_ajuda_pendente("benchmark"))
+    medida = comandos.add_parser(
+        "benchmark", help="mede os modelos candidatos no Ollama local e grava o relatório em docs/relatorios/"
+    )
+    medida.add_argument(
+        "--modelos",
+        default="llama3.2:1b,qwen2.5:1.5b,gemma3:1b",
+        help="modelos separados por vírgula (padrão: os três candidatos de 1 a 1,5B)",
+    )
 
     participantes = comandos.add_parser("participantes", help="cadastro de pseudônimos de participantes")
     subparticipantes = participantes.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
@@ -1043,6 +1113,11 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         if chave == "itens formatar":
             return itens_formatar(alvo)
 
+    if chave == "guarda verificar":
+        diretorio = getattr(espaco, "diretorio", None)
+        return guarda_verificar(diretorio if isinstance(diretorio, str) else None)
+    if chave == "benchmark":
+        return benchmark([m.strip() for m in str(espaco.modelos).split(",") if m.strip()])
     if chave == "excluir-dados":
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
     if chave == "participantes criar":

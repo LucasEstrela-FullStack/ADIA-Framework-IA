@@ -518,13 +518,15 @@ def test_o_conjunto_do_desafio_vem_inteiro_ou_nao_vem(caso: CasoDoDesafio) -> No
 # --------------------------------------------------------------------------- #
 
 BUSCA_DE_ENFASE: Final = settings(
-    max_examples=200, phases=(Phase.generate,), deadline=None, derandomize=True
+    max_examples=2000, phases=(Phase.generate,), deadline=None, derandomize=True
 )
 """Orçamento das buscas de apoio. Sem a fase de encolhimento: o que se afirma é que a forma é
 **alcançável**, e o exemplo mínimo não acrescenta nada a isso — só custa tempo no portão.
-`derandomize`: com sorteio livre, um regime raro às vezes não aparecia em 200 exemplos e a
-busca reprovava com `NoSuchExample` sem defeito nenhum. Com a sequência fixa, o resultado é o
-mesmo em toda execução: um regime que some reprova sempre, e não uma vez em dez."""
+Um regime raro às vezes não aparecia em 200 exemplos e a busca reprovava com `NoSuchExample`
+sem defeito nenhum. `derandomize` sozinho não bastou: a geração passa por iteração de conjunto,
+que muda com o `PYTHONHASHSEED` de cada processo. O teto de 2000 resolve sem custo no caso
+comum, porque `find` para no primeiro exemplo do regime; um regime que de fato some ainda
+reprova, só que depois de 2000 tentativas."""
 
 
 def reconhecedor_de(regime: Regime) -> Callable[[CasoDoDesafio], bool]:

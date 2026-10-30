@@ -1132,6 +1132,25 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** qualquer exposição além da máquina local exige autenticação e as
   pré-condições de D11.
 
+## DO-40 — Formas de vazamento da guarda e o conjunto de verificação
+
+- **Data:** 2026-10-30
+- **Decisão:** a guarda reconhece quatro formas, nesta ordem: gabarito ou variação escrita,
+  número dentro da tolerância (lendo `1.500` como 1,5 e como 1500), expressão aritmética
+  cujo resultado é o gabarito e equação linear na incógnita cuja solução é o gabarito. A
+  equação do próprio enunciado é ignorada. O avaliador segue DO-10: gramática restrita sem
+  `eval`, `Fraction` e os cinco limites. O conjunto declarado tem 39 casos em
+  `data/guarda/conjunto_verificacao.jsonl`, e o catálogo pré-escrito entra inteiro como
+  legítimo. `adia guarda verificar` reprova se faltar caso de alguma das quatro formas.
+- **Justificativa:** o caso difícil do documento do conjunto, a equação intermediária que
+  entrega o valor sem escrevê-lo, só se resolve resolvendo a equação. Ler o número das duas
+  formas quando há ambiguidade de milhar segue a falha fechada de DO-03.
+- **Origem:** R7.2, R7.9, R7.11; DO-02, DO-03, DO-10.
+- **Revalidação:** o procedimento descrito só em palavras ("divida por 2") ainda não é
+  detectado; entra no conjunto quando houver detector. Tempo medido nesta máquina, sobre os
+  183 textos do conjunto mais um texto adversarial de 40 frases com contas, 5 repetições:
+  mediana 0,28 ms, p95 0,76 ms, máximo 27 ms, muito abaixo dos 2 s de DO-02.
+
 ---
 
 ## Pendências

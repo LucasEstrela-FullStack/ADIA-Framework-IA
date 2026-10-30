@@ -338,14 +338,12 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
 
 
 def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
-    """Implementados: `doutor`, `itens`, `excluir-dados` e `participantes`; os seis restantes seguem pendentes."""
+    """Implementados: `doutor`, `itens`, `guarda`, `benchmark`, `excluir-dados` e `participantes`."""
     assert set(cli.PENDENTES) == {
         "migrar",
-        "guarda verificar",
         "indexar",
         "replay",
         "exportar",
-        "benchmark",
     }
     for pendente in cli.PENDENTES.values():
         assert pendente.fase.startswith("Fase ")
@@ -357,11 +355,9 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
     "invocacao",
     [
         ["migrar"],
-        ["guarda", "verificar"],
         ["indexar"],
         ["replay"],
         ["exportar"],
-        ["benchmark"],
     ],
 )
 def test_comando_pendente_informa_a_fase_e_falha(invocacao: list[str], capsys: pytest.CaptureFixture[str]) -> None:

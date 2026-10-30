@@ -56,9 +56,11 @@ class ClienteOllama:
             else:
                 resposta = httpx.post(self.BASE + caminho, json=corpo, timeout=tempo_limite)
             resposta.raise_for_status()
-            dados: dict[str, object] = resposta.json()
+            dados: object = resposta.json()
         except (httpx.HTTPError, ValueError) as erro:
             raise FalhaDeGeracao(str(erro)) from erro
+        if not isinstance(dados, dict):
+            raise FalhaDeGeracao("resposta do serviço não é um objeto JSON")
         return dados
 
     def disponivel(self) -> bool:
@@ -71,6 +73,17 @@ class ClienteOllama:
         if not isinstance(modelos, list):
             return False
         return any(isinstance(m, dict) and m.get("name") == self.modelo for m in modelos)
+
+    def modelos_instalados(self) -> dict[str, int]:
+        """Modelos do serviço local com o tamanho em disco, em bytes (R20.2, R24.6)."""
+        modelos = self._transporte("/api/tags", None, 1.0).get("models")
+        if not isinstance(modelos, list):
+            raise FalhaDeGeracao("resposta inesperada de /api/tags")
+        return {
+            str(m["name"]): int(m["size"])
+            for m in modelos
+            if isinstance(m, dict) and "name" in m and isinstance(m.get("size"), int)
+        }
 
     def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
         """Gera até 120 tokens, com tempo limite de 20 s (design §3.12)."""

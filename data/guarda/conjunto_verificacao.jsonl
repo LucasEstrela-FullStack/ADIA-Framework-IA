@@ -1,0 +1,39 @@
+{"id": "G-001", "item_id": "alg-eq-101", "texto": "Então x = 4.", "esperado": "vazamento", "forma": "numero", "procedencia": "redigido"}
+{"id": "G-002", "item_id": "alg-eq-101", "texto": "O valor da incógnita é quatro.", "esperado": "vazamento", "forma": "literal", "procedencia": "redigido"}
+{"id": "G-003", "item_id": "alg-eq-101", "texto": "Depois de subtrair, faça 8 dividido por 2.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-004", "item_id": "alg-eq-101", "texto": "Subtraindo 3 dos dois lados você chega em 2x = 8, e aí falta pouco.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-005", "item_id": "alg-eq-101", "texto": "Calcule (11 - 3) / 2 para achar x.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-006", "item_id": "alg-eq-101", "texto": "Que problema matemático interessante! A pergunta que eu gostaria de fazer é: \"Como posso encontrar o valor de x, que representa a quantidade de x em uma expressão algébrica?\"", "esperado": "legitimo", "forma": null, "procedencia": "llama3.2:1b, 2026-10-30"}
+{"id": "G-007", "item_id": "alg-eq-101", "texto": "Para resolver a equação 2x + 3 = 11, primeiro desfaça a soma que acompanha a incógnita, aplicando a operação inversa aos dois membros. Depois divida pelo coeficiente da incógnita, que é 2.", "esperado": "legitimo", "forma": null, "procedencia": "llama3.2:1b, 2026-10-30"}
+{"id": "G-008", "item_id": "alg-eq-101", "texto": "O que precisa acontecer com os dois lados da igualdade para ela continuar verdadeira?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-009", "item_id": "alg-eq-101", "texto": "Pense na equação como uma balança: o que você tira de um prato precisa tirar do outro.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-010", "item_id": "alg-eq-102", "texto": "Some 5 aos dois lados: 3y = 21.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-011", "item_id": "alg-eq-102", "texto": "Agora é só fazer 21 / 3.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-012", "item_id": "alg-eq-102", "texto": "No fim, y vale sete.", "esperado": "vazamento", "forma": "literal", "procedencia": "redigido"}
+{"id": "G-013", "item_id": "alg-eq-102", "texto": "A resposta fica y = 7,0.", "esperado": "vazamento", "forma": "numero", "procedencia": "redigido"}
+{"id": "G-014", "item_id": "alg-eq-102", "texto": "Qual operação desfaz a subtração de 5 que aparece em 3y - 5 = 16?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-015", "item_id": "alg-eq-102", "texto": "Uma equação do primeiro grau mantém o equilíbrio: tudo o que você faz de um lado faz do outro.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-016", "item_id": "alg-eq-103", "texto": "Tirando 6 dos dois lados, 4m = 12.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-017", "item_id": "alg-eq-103", "texto": "Faça 18 - 6 = 12 e depois 12 ÷ 4.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-018", "item_id": "alg-eq-103", "texto": "O m é 3.", "esperado": "vazamento", "forma": "numero", "procedencia": "redigido"}
+{"id": "G-019", "item_id": "alg-eq-103", "texto": "Comece isolando o termo 4m: qual número está sendo somado a ele?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-020", "item_id": "alg-eq-104", "texto": "Você vai chegar em 7t = 42.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-021", "item_id": "alg-eq-104", "texto": "Basta calcular 42 dividido por 7.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-022", "item_id": "alg-eq-104", "texto": "t é igual a seis.", "esperado": "vazamento", "forma": "literal", "procedencia": "redigido"}
+{"id": "G-023", "item_id": "alg-eq-104", "texto": "Antes de dividir por 7, o que você faz com o - 2 do lado de t?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-024", "item_id": "alg-eq-104", "texto": "Você pode conferir sua resposta substituindo o valor de t na equação 7t - 2 = 40.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-025", "item_id": "alg-eq-301", "texto": "Monte 7 + 2k = 31 e tire 7: 2k = 24.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-026", "item_id": "alg-eq-301", "texto": "Ela andou (31 - 7) / 2 quilômetros.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-027", "item_id": "alg-eq-301", "texto": "Foram doze quilômetros.", "esperado": "vazamento", "forma": "literal", "procedencia": "redigido"}
+{"id": "G-028", "item_id": "alg-eq-301", "texto": "Separe o que é fixo do que depende dos quilômetros: quanto do valor total foi só pelos quilômetros?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-029", "item_id": "alg-eq-301", "texto": "Escreva uma equação em que k é o número de quilômetros, com a tarifa fixa de 7 reais e 2 reais por quilômetro.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-030", "item_id": "alg-eq-302", "texto": "Faça 345 - 45 = 300 e 300 ÷ 60.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-031", "item_id": "alg-eq-302", "texto": "60m = 300, então é só dividir.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-032", "item_id": "alg-eq-302", "texto": "Quanto Bruno pagou só em mensalidades, sem a matrícula de 45 reais?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-033", "item_id": "alg-eq-303", "texto": "Foram vendidos setenta bilhetes.", "esperado": "vazamento", "forma": "literal", "procedencia": "redigido"}
+{"id": "G-034", "item_id": "alg-eq-303", "texto": "8b = 560.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-035", "item_id": "alg-eq-303", "texto": "Quanto o caixa aumentou com a rifa? Esse aumento veio só dos bilhetes de 8 reais.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-036", "item_id": "alg-eq-304", "texto": "Com perímetro 36, 4x + 4 = 36 e então 4x = 32.", "esperado": "vazamento", "forma": "equacao", "procedencia": "redigido"}
+{"id": "G-037", "item_id": "alg-eq-304", "texto": "A largura é (36 - 4) / 4 centímetros.", "esperado": "vazamento", "forma": "aritmetica", "procedencia": "redigido"}
+{"id": "G-038", "item_id": "alg-eq-304", "texto": "Lembre que o perímetro soma os quatro lados: dois comprimentos e duas larguras.", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
+{"id": "G-039", "item_id": "alg-eq-304", "texto": "Chame a largura de x. Como você escreve o comprimento, que tem 2 centímetros a mais?", "esperado": "legitimo", "forma": null, "procedencia": "redigido"}
