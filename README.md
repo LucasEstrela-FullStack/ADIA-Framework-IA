@@ -2,7 +2,7 @@
 
 **Adaptive Decremental Assistance in AI-Supported Learning.** Protótipo de pesquisa que mede quanto um estudante consegue fazer sozinho depois de praticar com IA e, com base nisso, retira o apoio da IA aos poucos.
 
-> Status: em construção, ainda sem código executável.
+> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. Ainda faltam o projeto STEAM, a retenção, a persistência em SQLite, o RAG e o painel do professor.
 
 ## Mapa geral
 
@@ -192,6 +192,18 @@ flowchart LR
 3. Desafio independente: problemas equivalentes e de transferência, com o aviso "IA desativada".
 4. Painel do estudante: evolução do IIC, matriz confiança × acerto e histórico de autonomia.
 5. Painel do professor: visão da turma, mapa de calor de atalhos cognitivos, limiares editáveis, troca de condição, correção do projeto STEAM e exportação em CSV.
+
+## Como rodar
+
+Pré-requisitos: Python 3.13 com `uv`, Node.js 24 e [Ollama](https://ollama.com).
+
+```powershell
+ollama pull llama3.2:1b          # uma vez, cerca de 1,3 GB
+.\scripts\dev-backend.ps1        # API em http://127.0.0.1:8000
+.\scripts\dev-frontend.ps1       # em outro terminal; abra http://127.0.0.1:5173
+```
+
+O modelo roda só em CPU (`num_gpu: 0`), porque nesta máquina o offload Vulkan para a GPU integrada derruba o servidor do Ollama. Sem o Ollama, a sessão funciona do mesmo jeito e as dicas usam o texto pré-escrito do item.
 
 ## Estrutura do repositório
 
