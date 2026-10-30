@@ -53,13 +53,13 @@ from typing import Final
 
 import pytest
 
-from adia import cli
+from adia import caminhos, cli
 
 # --------------------------------------------------------------------------- #
 # Localização dos arquivos que a triagem lê
 # --------------------------------------------------------------------------- #
 
-_RAIZ = cli.encontrar_raiz(Path(__file__).resolve().parent)
+_RAIZ = caminhos.encontrar_raiz(Path(__file__).resolve().parent)
 assert _RAIZ is not None, "a triagem precisa da raiz do projeto para ler uv.lock e pyproject.toml"
 RAIZ: Final = _RAIZ
 

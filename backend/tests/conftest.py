@@ -108,7 +108,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final, NoReturn
 
 import pytest
-from hypothesis import settings
+from hypothesis import HealthCheck, settings
 
 # --------------------------------------------------------------------------- #
 # Perfil dos testes de propriedade (design §5.0, §6.2)
@@ -122,7 +122,14 @@ versão rebaixaria as 37 propriedades sem que nada no repositório mudasse."""
 PERFIL_DE_PROPRIEDADES: Final = "propriedades"
 """Nome do perfil. Único no processo: desvio por propriedade é `@settings` no teste."""
 
-settings.register_profile(PERFIL_DE_PROPRIEDADES, settings(max_examples=EXEMPLOS_MINIMOS))
+# `too_slow` mede a velocidade de *geração* contra o relógio de parede: com a máquina
+# carregada (portão, IDE, Ollama), os geradores de banco e sessão estouravam o limite de
+# forma intermitente em P32 e P33, reprovando sem defeito nenhum. Os demais health checks
+# ficam ligados, porque apontam gerador mal escrito, e não máquina ocupada.
+settings.register_profile(
+    PERFIL_DE_PROPRIEDADES,
+    settings(max_examples=EXEMPLOS_MINIMOS, suppress_health_check=[HealthCheck.too_slow]),
+)
 settings.load_profile(PERFIL_DE_PROPRIEDADES)
 
 

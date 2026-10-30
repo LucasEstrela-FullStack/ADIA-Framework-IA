@@ -517,9 +517,14 @@ def test_o_conjunto_do_desafio_vem_inteiro_ou_nao_vem(caso: CasoDoDesafio) -> No
 # Afirmações de apoio: a ênfase de §5.6 tem exemplo
 # --------------------------------------------------------------------------- #
 
-BUSCA_DE_ENFASE: Final = settings(max_examples=200, phases=(Phase.generate,), deadline=None)
+BUSCA_DE_ENFASE: Final = settings(
+    max_examples=200, phases=(Phase.generate,), deadline=None, derandomize=True
+)
 """Orçamento das buscas de apoio. Sem a fase de encolhimento: o que se afirma é que a forma é
-**alcançável**, e o exemplo mínimo não acrescenta nada a isso — só custa tempo no portão."""
+**alcançável**, e o exemplo mínimo não acrescenta nada a isso — só custa tempo no portão.
+`derandomize`: com sorteio livre, um regime raro às vezes não aparecia em 200 exemplos e a
+busca reprovava com `NoSuchExample` sem defeito nenhum. Com a sequência fixa, o resultado é o
+mesmo em toda execução: um regime que some reprova sempre, e não uma vez em dez."""
 
 
 def reconhecedor_de(regime: Regime) -> Callable[[CasoDoDesafio], bool]:

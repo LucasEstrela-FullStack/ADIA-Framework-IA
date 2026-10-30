@@ -204,6 +204,8 @@ uv run adia participantes criar --coorte piloto --quantidade 30  # códigos P-NN
 .\scripts\dev-frontend.ps1                                    # outro terminal; abra http://127.0.0.1:5173
 ```
 
+Antes de cada commit, rode o portão local: `.\scripts\verificar.ps1`. Ele passa ruff, mypy, os contratos de import, o banco de itens, o pytest com 95% de cobertura no núcleo e na guarda (DO-12) e o typecheck do frontend, e lista os passos que ainda não existem como pulados. Para rodá-lo automaticamente, ative o gancho uma vez por clone: `git config core.hooksPath scripts/ganchos`.
+
 O estudante entra com o código que recebeu, e o servidor sorteia a condição (DO-07). O vínculo entre código e estudante fica só em `data/identidade/`, fora do banco e do git. Para apagar os dados de alguém, use `uv run adia excluir-dados --participante P-0001`; para aplicar o prazo de 180 dias, `uv run adia excluir-dados --expirados`.
 
 O modelo roda só em CPU (`num_gpu: 0`), porque nesta máquina o offload Vulkan para a GPU integrada derruba o servidor do Ollama. Sem o Ollama, a sessão funciona do mesmo jeito e as dicas usam o texto pré-escrito do item.

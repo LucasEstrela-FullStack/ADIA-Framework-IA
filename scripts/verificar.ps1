@@ -30,11 +30,12 @@ $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $raiz
 
 # Mesma convencao de backend/adia/cli.py: 3 significa "declarado no design, ainda nao
-# implementado". Os passos 4 e 5 ja devolvem esse codigo por conta propria, com a fase e a
-# tarefa na mensagem, e por isso sao chamados direto. Os passos 7 e 8 ganham o equivalente
-# mais abaixo, porque o npm nao tem como saber que frontend/package.json entra na tarefa
-# 11.1 -- sem a checagem, o portao morreria num ENOENT em vez de dizer o que falta.
+# implementado". Passo nesse estado e PULADO, nao reprovado: antes, o passo 5 pendente
+# encerrava o portao e o pytest nunca rodava. Os passos pulados sao listados no fim, para
+# que "sem falhas" nunca seja lido como "tudo verificado". Nos passos 7 e 8 o equivalente e
+# o script npm ausente.
 $CODIGO_NAO_IMPLEMENTADO = 3
+$pulados = @()
 
 # Triagem de dependencias que exigem rede -- DO-17 em docs/decisoes.md (R24.8, R24.9).
 #
@@ -74,30 +75,48 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host ""
 Write-Host "[5/8] adia guarda verificar -- conjunto declarado da guarda como portao"
 uv run adia guarda verificar
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($LASTEXITCODE -eq $CODIGO_NAO_IMPLEMENTADO) {
+    $pulados += "5 (adia guarda verificar)"
+} elseif ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
 
 Write-Host ""
 Write-Host "[6/8] pytest -- unidade, propriedades, conjuntos e integracao, com o Ollama fora"
-uv run pytest -m "not ollama and not desempenho"
+# DO-12: portao de 95% de cobertura so sobre o nucleo e a guarda; o resto e medido, sem portao.
+uv run pytest -m "not ollama and not desempenho" --cov=backend/adia/nucleo --cov=backend/adia/guarda --cov-report=term --cov-fail-under=95
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "[7/8] vitest -- decisao de renderizacao das telas"
-if (-not (Test-Path -LiteralPath "frontend/package.json")) {
-    Write-Host "  'npm --prefix frontend run test:run' ainda nao esta disponivel."
-    Write-Host "  frontend/package.json entra na Fase 5, tarefa 11.1 (andaime do Vite)."
-    Write-Host "  Os passos 7 e 8 dependem dele. Nenhuma acao foi executada."
-    exit $CODIGO_NAO_IMPLEMENTADO
-}
-npm --prefix frontend run test:run
+Write-Host "[7/8] frontend -- tipos (tsc) e vitest da decisao de renderizacao das telas"
+npm --prefix frontend run typecheck
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$scripts = (Get-Content -LiteralPath "frontend/package.json" -Raw | ConvertFrom-Json).scripts
+if ($null -eq $scripts."test:run") {
+    Write-Host "  'test:run' ainda nao existe em frontend/package.json: vitest pulado."
+    $pulados += "7 (vitest)"
+} else {
+    npm --prefix frontend run test:run
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 
 Write-Host ""
 Write-Host "[8/8] playwright -- cinco fluxos de ponta a ponta, sobre dicas pre-escritas"
-npm --prefix frontend run e2e
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($null -eq $scripts.e2e) {
+    Write-Host "  'e2e' ainda nao existe em frontend/package.json: playwright pulado."
+    $pulados += "8 (playwright)"
+} else {
+    npm --prefix frontend run e2e
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
 
 $duracao = (Get-Date) - $inicio
 Write-Host ""
+if ($pulados.Count -gt 0) {
+    # Pulado nao e verde: o portao passa, mas diz em voz alta o que ele ainda nao verifica.
+    Write-Host ("Portao sem falhas em {0:n1} min, com {1} passo(s) PULADO(S) por nao implementado(s):" -f $duracao.TotalMinutes, $pulados.Count)
+    foreach ($passo in $pulados) { Write-Host "  - $passo" }
+    exit 0
+}
 Write-Host ("Portao completo: 8 de 8 passos verdes em {0:n1} min (orcamento de 10 min em 2.5)." -f $duracao.TotalMinutes)
 exit 0

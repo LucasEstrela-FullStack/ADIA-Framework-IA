@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from adia import cli
+from adia import caminhos, cli
 
 # --------------------------------------------------------------------------- #
 # Leitura de versão
@@ -173,7 +173,7 @@ def test_exigencias_vem_dos_arquivos_de_fixacao(tmp_path: Path) -> None:
     raiz = _montar_raiz(tmp_path, python="3.12\n", node="22\n", npm=">=10 <11")
     exigencias = cli.montar_exigencias(raiz)
     assert exigencias["Python"].texto == "3.12.x"
-    assert exigencias["Python"].fonte == cli.ARQUIVO_PYTHON
+    assert exigencias["Python"].fonte == caminhos.ARQUIVO_PYTHON
     assert exigencias["Node.js"].texto == "22.x"
     assert exigencias["Node.js"].fonte == cli.ARQUIVO_NODE
     assert exigencias["npm"].texto == ">=10 <11"
@@ -241,7 +241,7 @@ def test_encontrar_raiz_sobe_a_arvore(tmp_path: Path) -> None:
     raiz = _montar_raiz(tmp_path)
     fundo = raiz / "backend" / "adia" / "nucleo"
     fundo.mkdir(parents=True)
-    assert cli.encontrar_raiz(fundo) == raiz.resolve()
+    assert caminhos.encontrar_raiz(fundo) == raiz.resolve()
 
 
 # --------------------------------------------------------------------------- #

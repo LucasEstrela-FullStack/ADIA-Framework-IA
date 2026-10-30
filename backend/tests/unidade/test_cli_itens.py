@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from adia import cli
+from adia import caminhos, cli
 from adia.nucleo.itens.carregador import SUFIXO_DE_ARQUIVO
 
 # --------------------------------------------------------------------------- #
@@ -76,7 +76,7 @@ def test_sem_diretorio_o_banco_e_data_itens_sob_a_raiz() -> None:
     alvo = cli.localizar_itens()
 
     assert alvo.diretorio is not None
-    assert alvo.diretorio.parts[-2:] == cli.DIRETORIO_DE_ITENS.parts
+    assert alvo.diretorio.parts[-2:] == caminhos.DIRETORIO_DE_ITENS.parts
 
 
 def test_diretorio_inexistente_reprova(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

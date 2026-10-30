@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from adia.cli import DIRETORIO_DE_ITENS, encontrar_raiz
+from adia.caminhos import DIRETORIO_DE_ITENS, encontrar_raiz
 from adia.ia.cliente_ollama import ClienteOllama
 from adia.ia.subagentes.papeis import LIMITE_DA_EXPLICACAO
 from adia.nucleo.sessao.gestor import OperacaoRecusada, ResumoDoCiclo, Sessao

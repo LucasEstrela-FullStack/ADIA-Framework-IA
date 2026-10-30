@@ -72,6 +72,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal
 
+from adia.caminhos import ARQUIVO_PYTHON, DIRETORIO_DE_ITENS, MARCAS_DA_RAIZ, encontrar_raiz
 from adia.nucleo.itens.carregador import (
     SUFIXO_DE_ARQUIVO,
     arquivos_de_itens,
@@ -98,13 +99,9 @@ TEMPO_LIMITE_SERVICO_S: Final = 1.0
 HOST_OLLAMA: Final = "127.0.0.1"
 PORTA_OLLAMA: Final = 11434
 
-ARQUIVO_PYTHON: Final = ".python-version"
 ARQUIVO_NODE: Final = ".nvmrc"
 ARQUIVO_NPM: Final = "package.json"
 
-#: Marcas que identificam a raiz do projeto. As duas juntas, porque
-#: `pyproject.toml` sozinho também aparece em subprojetos.
-MARCAS_DA_RAIZ: Final = (ARQUIVO_PYTHON, "pyproject.toml")
 
 CODIGO_OK: Final = 0
 CODIGO_AMBIENTE_INVALIDO: Final = 1
@@ -115,8 +112,6 @@ CODIGO_AMBIENTE_INVALIDO: Final = 1
 CODIGO_BANCO_INVALIDO: Final = 1
 CODIGO_NAO_IMPLEMENTADO: Final = 3
 
-#: Diretório do banco de itens, relativo à raiz do projeto (design §2.3, D12).
-DIRETORIO_DE_ITENS: Final = Path("data") / "itens"
 
 SEM_VERSAO_FIXADA: Final = "não fixada"
 EXIGENCIA_INDETERMINADA: Final = "indeterminada"
@@ -316,20 +311,6 @@ def codigo_de_saida(relatorio: Relatorio) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def encontrar_raiz(inicio: Path | None = None) -> Path | None:
-    """Sobe a árvore de diretórios até achar as marcas da raiz do projeto.
-
-    Tenta, na ordem, o diretório informado, o diretório de trabalho e o
-    diretório deste módulo. O terceiro é o que resolve a instalação editável,
-    em que o pacote continua em `backend/adia/`.
-    """
-    partidas = [caminho for caminho in (inicio, Path.cwd(), Path(__file__).resolve().parent) if caminho is not None]
-    for partida in partidas:
-        resolvida = partida.resolve()
-        for diretorio in (resolvida, *resolvida.parents):
-            if all((diretorio / marca).is_file() for marca in MARCAS_DA_RAIZ):
-                return diretorio
-    return None
 
 
 def _ler_texto(caminho: Path) -> str | None:

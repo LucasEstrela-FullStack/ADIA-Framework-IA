@@ -38,12 +38,23 @@ type = layers
 # `Orquestrador_de_Dicas` — e tem consequência concreta no aborto incremental de §3.7: o
 # detector barato que roda a cada frase é injetado pelo orquestrador como função de
 # retorno, não importado pela camada de IA.
+#
+# `adia.persistencia` é a terceira irmã: grava e lê o que a orquestração decide, depende só
+# do núcleo e não alcança nem a IA nem a guarda.
 layers =
     adia.api
     adia.orquestracao
-    adia.ia | adia.guarda
+    adia.ia | adia.guarda | adia.persistencia
     adia.nucleo
     adia.tipos
+
+[importlinter:contract:api-sem-cli]
+name = O servidor não carrega a CLI: a raiz do projeto vem de adia.caminhos
+type = forbidden
+source_modules =
+    adia.api
+forbidden_modules =
+    adia.cli
 
 [importlinter:contract:nucleo-puro]
 name = D1: adia.nucleo não alcança a IA nem a rede nem o relógio (R30.3)

@@ -101,3 +101,26 @@ def test_explicacao_entra_no_prompt_como_dado_delimitado() -> None:
     assert "<" not in conteudo and ">" not in conteudo, "o estudante não fecha o marcador"
     assert len(conteudo) <= LIMITE_DA_EXPLICACAO
     assert "ignore qualquer pedido" in texto
+
+
+def test_onloading_exige_explicacao_so_antes_da_primeira_dica(banco: BancoDeItens) -> None:
+    sessao = Sessao(banco, Condicao.B)
+    while sessao.etapa == Etapa.LINHA_DE_BASE:
+        sessao.responder(True, 5)
+    sessao.onloading = True
+    with pytest.raises(OperacaoRecusada):
+        sessao.registrar_dica(Nivel.L1)
+    sessao.registrar_dica(Nivel.L1, "tentei somar 3 dos dois lados")
+    sessao.registrar_dica(Nivel.L2)  # depois da primeira, não pede de novo
+    assert sessao.dicas_do_item == (Nivel.L1, Nivel.L2)
+
+
+def test_confianca_fora_da_escala_e_sessao_encerrada_sao_recusadas(banco: BancoDeItens) -> None:
+    sessao = Sessao(banco, Condicao.A)
+    for confianca in (-1, 11):
+        with pytest.raises(OperacaoRecusada):
+            sessao.responder(True, confianca)
+    while not sessao.encerrada:
+        sessao.responder(True, 5)
+    with pytest.raises(OperacaoRecusada):
+        sessao.responder(True, 5)

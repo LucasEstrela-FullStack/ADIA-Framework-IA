@@ -7,12 +7,12 @@ from pathlib import Path
 
 import pytest
 
-from adia import cli
+from adia import caminhos, cli
 
 
 @pytest.fixture
 def projeto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    for marca in cli.MARCAS_DA_RAIZ:
+    for marca in caminhos.MARCAS_DA_RAIZ:
         (tmp_path / marca).write_text("", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     return tmp_path

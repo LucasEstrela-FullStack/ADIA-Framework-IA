@@ -1,0 +1,5 @@
+#!/bin/sh
+# Gancho de pre-commit versionado: roda o portao local antes de cada commit.
+# Instalacao, uma vez por clone: git config core.hooksPath scripts/ganchos
+# Para pular num caso excepcional: git commit --no-verify (e rodar o portao depois).
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verificar.ps1

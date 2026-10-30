@@ -46,6 +46,7 @@ _CONTRATOS_DECLARADOS = frozenset(
         "guarda-pura",
         "roteador-nao-alcanca-a-regra",
         "torch-fora-do-servidor",
+        "api-sem-cli",
     }
 )
 
@@ -91,7 +92,7 @@ def _relatorio(resultado: subprocess.CompletedProcess[str]) -> str:
     )
 
 
-def test_os_cinco_contratos_continuam_declarados() -> None:
+def test_os_contratos_continuam_declarados() -> None:
     """Contrato apagado do arquivo deixaria o `lint-imports` verde sem verificar nada."""
     configuracao = configparser.ConfigParser()
     lidos = configuracao.read(_CONFIG_CONTRATOS, encoding="utf-8")

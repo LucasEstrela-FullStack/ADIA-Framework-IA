@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from hypothesis import settings
+from hypothesis import HealthCheck, settings
 
 EXEMPLOS_EXIGIDOS: Final = 100
 """Piso de exemplos por propriedade, transcrito de §5.0: "no mínimo 100 exemplos"."""
@@ -71,3 +71,10 @@ def test_o_desvio_por_teste_preserva_o_orcamento_do_perfil() -> None:
     assert com_prazo_livre.deadline is None
     assert com_orcamento_maior.max_examples == EXEMPLOS_ADVERSARIOS
     assert com_orcamento_maior.deadline == carregado.deadline
+
+
+def test_o_perfil_so_desliga_o_health_check_de_velocidade() -> None:
+    """Só `too_slow` é suprimido; gerador que filtra demais ou gera grande demais ainda reprova."""
+    carregado = settings.default
+    assert carregado is not None, SEM_PERFIL
+    assert list(carregado.suppress_health_check) == [HealthCheck.too_slow]
