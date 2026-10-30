@@ -1,32 +1,27 @@
-"""Cliente do Serviço_de_Inferência_Local: disponibilidade, geração e *embeddings*.
+"""Cliente do Serviço_de_Inferência_Local: disponibilidade e geração.
 
-**Esqueleto da Fase 0.** O que está aqui são as duas peças de que a verificação de
-isolamento precisa antes de existir cliente nenhum (design §6.4):
+Toda chamada HTTP passa por ``ClienteOllama._transporte``, a costura única que a fixture
+``ollama_proibido`` substitui pelo dublê (design §6.4). O endereço é fixo no laço local
+(R24.8): nenhum dado de estudante sai da máquina.
 
-- ``RespostaDoModelo``, o tipo que o teste de tipo negativo de
-  ``backend/tests/conjuntos/tipos_fronteira.py`` tenta empurrar para dentro do núcleo puro.
-  É o lado de fora da fronteira da **camada 2**;
-- ``ClienteOllama._transporte``, a costura única que a fixture ``ollama_proibido`` substitui
-  pelo dublê. É o ponto de ancoragem da **camada 3**.
-
-O resto é da **tarefa 13.1**: ``disponivel`` (tempo limite de conexão de 1 s e cache de
-5 s), ``gerar`` com tempo limite de 20 s e saída de até 120 tokens, ``embutir``,
-``descritor_do_modelo``, a restrição do transporte a ``127.0.0.1`` e ``localhost``, o
-aquecimento na subida da API e os tipos de retorno ``GeracaoCompleta`` e ``FalhaDeGeracao``
-de §3.12.
+shortcut: sem cache de disponibilidade, sem ``embutir`` e sem aquecimento na subida da API
+(design §3.12); acrescentar quando o RAG entrar.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
+
+import httpx
+
+MODELO_PADRAO = "llama3.2:1b"
+"""Modelo de D14 (``docs/decisoes.md``)."""
 
 
 @dataclass(frozen=True)
 class RespostaDoModelo:
     """Saída bruta do serviço de inferência, do lado probabilístico da fronteira.
-
-    Campos na tarefa 13.1 (§3.12): texto gerado, contagem de tokens, latência e o
-    descritor do modelo que a proveniência exige (R26.2).
 
     Que esta classe **não** seja aceita por ``adia.nucleo.regulacao.regra.decidir`` é o que
     a camada 2 afirma. Dar a ela qualquer compatibilidade com ``EntradaDeRegulacao`` — por
@@ -34,25 +29,72 @@ class RespostaDoModelo:
     intenção: a travessia não deve ser escrevível.
     """
 
+    texto: str
+    tokens: int
+    latencia_ms: int
+    modelo: str
+
+
+class FalhaDeGeracao(Exception):
+    """O serviço não respondeu, respondeu com erro ou estourou o tempo limite."""
+
 
 class ClienteOllama:
-    """Única porta de saída para o serviço de inferência local (§3.12).
-
-    Métodos públicos na tarefa 13.1. O que existe desde a Fase 0 é a costura de transporte,
-    porque é dela que a camada 3 depende: a fixture ``ollama_proibido`` troca
-    ``ClienteOllama._transporte`` pelo dublê a cada teste sem o marcador ``ollama``. Sem o
-    atributo, a troca falharia e a proibição ficaria pela metade — de pé apenas a
-    interceptação de soquete, que é a rede larga, não a costura do cliente oficial.
-    """
+    """Única porta de saída para o serviço de inferência local (§3.12)."""
 
     BASE = "http://127.0.0.1:11434"
     """Endereço do serviço local. A porta 11434 é a que a camada 3 proíbe por destino."""
 
-    def _transporte(self, *argumentos: object, **nomeados: object) -> object:
-        """Emite o pedido HTTP ao serviço local e devolve a resposta decodificada.
+    def __init__(self, modelo: str = MODELO_PADRAO) -> None:
+        self.modelo = modelo
 
-        A assinatura fica aberta de propósito enquanto o corpo não existe: fixá-la agora
-        seria decidir o formato do pedido, que é projeto da tarefa 13.1. O que a Fase 0
-        precisa é do **nome** — é por ele que a fixture encontra a costura.
-        """
-        raise NotImplementedError("O transporte HTTP é implementado na tarefa 13.1 (design §3.12).")
+    def _transporte(self, caminho: str, corpo: dict[str, object] | None, tempo_limite: float) -> dict[str, object]:
+        """Emite o pedido HTTP ao serviço local e devolve a resposta decodificada."""
+        try:
+            if corpo is None:
+                resposta = httpx.get(self.BASE + caminho, timeout=tempo_limite)
+            else:
+                resposta = httpx.post(self.BASE + caminho, json=corpo, timeout=tempo_limite)
+            resposta.raise_for_status()
+            dados: dict[str, object] = resposta.json()
+        except (httpx.HTTPError, ValueError) as erro:
+            raise FalhaDeGeracao(str(erro)) from erro
+        return dados
+
+    def disponivel(self) -> bool:
+        """Se o serviço responde e tem o modelo configurado instalado."""
+        try:
+            dados = self._transporte("/api/tags", None, 1.0)
+        except FalhaDeGeracao:
+            return False
+        modelos = dados.get("models")
+        if not isinstance(modelos, list):
+            return False
+        return any(isinstance(m, dict) and m.get("name") == self.modelo for m in modelos)
+
+    def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
+        """Gera até 120 tokens, com tempo limite de 20 s (design §3.12)."""
+        inicio = perf_counter()
+        dados = self._transporte(
+            "/api/generate",
+            {
+                "model": self.modelo,
+                "system": sistema,
+                "prompt": pedido,
+                "stream": False,
+                # num_gpu 0: o offload Vulkan na GPU integrada desta máquina derruba o
+                # llama-server (0xc0000005); em CPU o modelo de 1B roda bem (D14).
+                "options": {"num_predict": 120, "temperature": 0.3, "num_gpu": 0},
+            },
+            20.0,
+        )
+        texto = dados.get("response")
+        if not isinstance(texto, str) or not texto.strip():
+            raise FalhaDeGeracao("resposta vazia do modelo")
+        tokens = dados.get("eval_count")
+        return RespostaDoModelo(
+            texto=texto.strip(),
+            tokens=tokens if isinstance(tokens, int) else 0,
+            latencia_ms=int((perf_counter() - inicio) * 1000),
+            modelo=self.modelo,
+        )

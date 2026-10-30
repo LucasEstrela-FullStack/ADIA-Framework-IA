@@ -1,43 +1,84 @@
 """Regra de regulação do teto de suporte: precedência, saturação e evidência incompleta.
 
-**Esqueleto da Fase 0.** Só a *assinatura* de ``decidir`` está aqui, e ela existe desde já
-porque é ela que a camada 2 da verificação de isolamento afirma (design §6.4): o teste de
-tipo negativo de ``backend/tests/conjuntos/tipos_fronteira.py`` precisa de um alvo real
-para que o ``mypy`` tenha o que recusar. Sem o alvo, a proteção só entraria em vigor na
-Fase 2, e a Fase 0 é justamente onde o design quer a fronteira armada.
+A regra é a do ``README.md`` (seção *Regra de regulação*), avaliada nesta ordem, com
+interrupção na primeira condição satisfeita:
 
-O corpo é da **tarefa 4.1**, que acrescenta ``ConjuntoDeLimiares``, os campos de
-``EntradaDeRegulacao`` e de ``DecisaoDeRegulacao`` listados em §3.4, a ordem de avaliação
-com interrupção na primeira condição satisfeita, o arredondamento a quatro casas em
-``Decimal`` e a saturação em L1 e L4. A **tarefa 4.2** acrescenta ``aplicar``.
+1. ``gap > 0,25`` — ``ONLOADING``: teto mantido, explicação exigida antes da dica;
+2. ``independente >= 0,8`` e ``|viés| <= 0,2`` — ``FADING``: teto desce um nível;
+3. ``independente < 0,4`` — ``ESCALONAR``: teto sobe um nível;
+4. qualquer outro caso — ``MANTER``.
 
-Os campos ficam de fora deste esqueleto de propósito: eles dependem de ``Medida``,
-``Nivel`` e ``Condicao``, que são da tarefa 3.1 em ``adia.tipos``. O que a fronteira de
-tipo precisa é do nome do parâmetro de ``decidir`` ser um tipo **nominal** declarado no
-lado puro — e isso já é verdade com as classes vazias abaixo.
+Independente da decisão, ``viés > 0,25`` (excesso de confiança) liga a exigência de
+justificativa da resposta. Toda medida é quantizada a quatro casas com ``ROUND_HALF_UP``
+antes de comparar com limiar (R9.12), e medida indisponível decide ``MANTER`` com a
+evidência incompleta registrada (R9.13): ausência de base nunca vira zero.
+
+A decisão registrada e o teto aplicado são campos distintos: em ``L1`` com ``FADING`` (ou em
+``L4`` com ``ESCALONAR``) a decisão é preservada e o teto satura (R9.6, R9.7).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from decimal import ROUND_HALF_UP, Decimal
+
+from adia.tipos import Condicao, Indisponivel, Medida, Nivel, TipoDecisao, e_disponivel
+
+_QUATRO_CASAS = Decimal("0.0001")
+
+
+@dataclass(frozen=True)
+class ConjuntoDeLimiares:
+    """Limiares da regra, editáveis pelo professor no painel (README)."""
+
+    independente_fading: Decimal = Decimal("0.8")
+    gap_maximo: Decimal = Decimal("0.25")
+    vies_maximo_fading: Decimal = Decimal("0.2")
+    independente_escalonar: Decimal = Decimal("0.4")
+    vies_justificativa: Decimal = Decimal("0.25")
+    versao: str = "readme-v1"
 
 
 @dataclass(frozen=True)
 class EntradaDeRegulacao:
     """Evidência de desempenho e de confiança de um ciclo, na forma que a regra consome.
 
-    Campos na tarefa 4.1 (§3.4): ``acerto_assistido``, ``acerto_independente``,
-    ``confianca_media``, ``gap``, ``vies``, ``teto_anterior`` e ``limiares``.
+    As três medidas são proporções entre 0 e 1; ``confianca_media`` já vem normalizada (a
+    escala de 0 a 10 dividida por 10).
     """
+
+    acerto_assistido: Medida
+    acerto_independente: Medida
+    confianca_media: Medida
+    teto_anterior: Nivel
+    limiares: ConjuntoDeLimiares = field(default_factory=ConjuntoDeLimiares)
 
 
 @dataclass(frozen=True)
 class DecisaoDeRegulacao:
-    """Decisão registrada, distinta do teto aplicado (R9.6, R9.7).
+    """Decisão registrada, distinta do teto aplicado (R9.6, R9.7)."""
 
-    Campos na tarefa 4.1 (§3.4): ``tipo``, ``ajuste_indicado``, ``teto_resultante``,
-    ``saturacao``, ``onloading_ativado``, ``evidencia_incompleta`` e ``limiares_versao``.
-    """
+    tipo: TipoDecisao
+    teto_resultante: Nivel
+    saturacao: bool
+    onloading_ativado: bool
+    justificativa_exigida: bool
+    evidencia_incompleta: str | None
+    gap: Medida
+    vies: Medida
+    limiares_versao: str
+
+
+def _quantizar(valor: Decimal) -> Decimal:
+    return valor.quantize(_QUATRO_CASAS, rounding=ROUND_HALF_UP)
+
+
+def _deslocar(teto: Nivel, passo: int) -> tuple[Nivel, bool]:
+    """Teto deslocado de ``passo`` níveis, e se a borda impediu o deslocamento."""
+    alvo = int(teto) + passo
+    if alvo < Nivel.L1 or alvo > Nivel.L4:
+        return teto, True
+    return Nivel(alvo), False
 
 
 def decidir(entrada: EntradaDeRegulacao) -> DecisaoDeRegulacao:
@@ -47,4 +88,63 @@ def decidir(entrada: EntradaDeRegulacao) -> DecisaoDeRegulacao:
     nunca ``Any`` nem ``object``. Afrouxá-la reprova o ``mypy`` pelo caminho descrito em
     ``backend/tests/conjuntos/tipos_fronteira.py``.
     """
-    raise NotImplementedError("A regra de decisão é implementada na tarefa 4.1 (design §3.4).")
+    limiares = entrada.limiares
+    assistido, independente, confianca = (
+        entrada.acerto_assistido,
+        entrada.acerto_independente,
+        entrada.confianca_media,
+    )
+    if not (e_disponivel(assistido) and e_disponivel(independente) and e_disponivel(confianca)):
+        motivos = [
+            m.motivo for m in (assistido, independente, confianca) if isinstance(m, Indisponivel)
+        ]
+        ausente = Indisponivel("; ".join(motivos))
+        return DecisaoDeRegulacao(
+            tipo=TipoDecisao.MANTER,
+            teto_resultante=entrada.teto_anterior,
+            saturacao=False,
+            onloading_ativado=False,
+            justificativa_exigida=False,
+            evidencia_incompleta=ausente.motivo,
+            gap=ausente,
+            vies=ausente,
+            limiares_versao=limiares.versao,
+        )
+
+    independente = _quantizar(independente)
+    gap = _quantizar(assistido - independente)
+    vies = _quantizar(confianca - independente)
+
+    if gap > limiares.gap_maximo:
+        tipo, passo = TipoDecisao.ONLOADING, 0
+    elif independente >= limiares.independente_fading and abs(vies) <= limiares.vies_maximo_fading:
+        tipo, passo = TipoDecisao.FADING, -1
+    elif independente < limiares.independente_escalonar:
+        tipo, passo = TipoDecisao.ESCALONAR, 1
+    else:
+        tipo, passo = TipoDecisao.MANTER, 0
+
+    teto, saturou = _deslocar(entrada.teto_anterior, passo)
+    return DecisaoDeRegulacao(
+        tipo=tipo,
+        teto_resultante=teto,
+        saturacao=saturou,
+        onloading_ativado=tipo is TipoDecisao.ONLOADING,
+        justificativa_exigida=vies > limiares.vies_justificativa,
+        evidencia_incompleta=None,
+        gap=gap,
+        vies=vies,
+        limiares_versao=limiares.versao,
+    )
+
+
+def aplicar(condicao: Condicao, decisao: DecisaoDeRegulacao, teto_anterior: Nivel) -> Nivel:
+    """Teto do ciclo seguinte conforme a condição experimental (R14.1 a R14.4).
+
+    Em A e C a decisão é só sombra: A fica em ``L4`` e C desce um nível por ciclo.
+    """
+    if condicao is Condicao.A:
+        return Nivel.L4
+    if condicao is Condicao.C:
+        return _deslocar(teto_anterior, -1)[0]
+    return decisao.teto_resultante
