@@ -378,8 +378,8 @@ código, em arquivos de configuração e nas exportações CSV.
   desejada, e um marcador rastreado abriria a porta para o conteúdo entrar junto.
 - **Origem:** R1.1 e R1.8; design §2.3.
 - **Revalidação:** ao fim da Fase 0, remover o `.gitkeep` de todo diretório que já tenha
-  ganhado conteúdo. Ver a pendência sobre o `.gitignore` de `data/identidade/` na seção
-  seguinte.
+  ganhado conteúdo. O `.gitignore` de `data/identidade/` está em
+  [DO-19](#do-19--caminho-único-do-vínculo-entre-pseudônimo-e-identidade).
 
 ## DO-14 — Prazo de retenção de dados de estudante: 180 dias
 
@@ -1090,12 +1090,6 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 Decisões operacionais que o design já identifica mas cujo valor pertence a código ainda não
 escrito, ou que a tarefa 1.1 não produz. Cada uma entra neste registro pela tarefa indicada.
 A lista existe para que nenhuma se perca entre fases.
-
-### Fase 0, tarefas seguintes
-
-| Pendência | Origem | Tarefa |
-| --- | --- | --- |
-| Regra do `.gitignore` para o conteúdo de `data/identidade/`. Hoje nenhum padrão do `.gitignore` cobre esse caminho, de modo que um mapa pseudônimo↔identidade colocado ali **seria rastreado**. A correção é um padrão explícito para o conteúdo do diretório, preservando a regra ampla. Ver DO-13 | R1.8, R25.4; design §2.3 | a definir |
 
 ### Fases posteriores
 
