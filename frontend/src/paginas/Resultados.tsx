@@ -9,8 +9,7 @@ export function Resultados({ estado, aoReiniciar }: { estado: Estado; aoReinicia
       <header>
         <h1>Sessão concluída</h1>
         <p className="sutil">
-          Condição {estado.condicao}. TAI é o acerto sem IA. IIC compara o acerto sem IA com o acerto com IA e deve ser
-          lido ao lado da TAI.
+          TAI é o acerto sem IA. IIC compara o acerto sem IA com o acerto com IA e deve ser lido ao lado da TAI.
         </p>
       </header>
       <div className="tabela">

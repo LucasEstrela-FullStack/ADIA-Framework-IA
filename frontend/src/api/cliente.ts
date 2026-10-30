@@ -16,7 +16,6 @@ export type Ciclo = {
 
 export type Estado = {
   id: string;
-  condicao: "A" | "B" | "C";
   etapa: string;
   ciclo: number;
   teto: number;
@@ -49,11 +48,12 @@ async function pedir<T>(caminho: string, corpo?: unknown): Promise<T> {
 
 export const api = {
   saude: () => pedir<Saude>("/saude"),
-  criar: (condicao: string) => pedir<Estado>("/sessoes", { condicao }),
-  responder: (id: string, resposta: string, confianca: number) =>
+  iniciar: (participante: string) => pedir<Estado>("/sessoes", { participante }),
+  responder: (id: string, resposta: string, confianca: number, justificativa: string) =>
     pedir<{ resultado: string | null; ciclo_fechado: Ciclo | null; estado: Estado }>(`/sessoes/${id}/respostas`, {
       resposta,
       confianca,
+      justificativa,
     }),
   dica: (id: string, nivel: number, explicacao: string) => pedir<Dica>(`/sessoes/${id}/dicas`, { nivel, explicacao }),
 };

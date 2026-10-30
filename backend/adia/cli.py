@@ -70,7 +70,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 from adia.nucleo.itens.carregador import (
     SUFIXO_DE_ARQUIVO,
@@ -79,6 +79,9 @@ from adia.nucleo.itens.carregador import (
     carregar,
 )
 from adia.nucleo.itens.erros import ErroDeCarga
+
+if TYPE_CHECKING:
+    from adia.persistencia.repositorio import Repositorio
 
 # --------------------------------------------------------------------------- #
 # Constantes
@@ -823,7 +826,8 @@ def _gravar_canonico(textos: Mapping[Path, str]) -> tuple[Path, ...]:
     return tuple(reescritos)
 
 
-#: Os nove comandos da tabela do design §3.18, na ordem em que ela os declara.
+#: Os nove comandos da tabela do design §3.18, na ordem em que ela os declara, mais
+#: `participantes`, que o cadastro de pseudônimos da Fase 1 de validade exigiu.
 #: `itens` e `guarda` são grupos: a invocação completa leva subcomando.
 COMANDOS: Final = (
     "doutor",
@@ -835,6 +839,7 @@ COMANDOS: Final = (
     "exportar",
     "excluir-dados",
     "benchmark",
+    "participantes",
 )
 
 
@@ -879,12 +884,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "8.8",
         "exporta os CSV de eventos e de métricas com proveniência embutida",
     ),
-    "excluir-dados": Pendente(
-        "adia excluir-dados",
-        "Fase 2",
-        "8.11",
-        "exclui os dados de um pseudônimo e registra a execução na auditoria",
-    ),
     "benchmark": Pendente(
         "adia benchmark",
         "Fase 4",
@@ -904,6 +903,63 @@ def relatar_pendente(pendente: Pendente) -> int:
         ]
     )
     return CODIGO_NAO_IMPLEMENTADO
+
+
+def _repositorio() -> Repositorio | None:
+    """Repositório do projeto, ou ``None`` com a mensagem já escrita.
+
+    Importado aqui, e não no topo, para que `doutor` e `itens` não abram o SQLite.
+    """
+    from adia.persistencia.repositorio import BANCO_DE_DADOS, Repositorio
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return None
+    return Repositorio(raiz / BANCO_DE_DADOS)
+
+
+def participantes_criar(coorte: str, quantidade: int) -> int:
+    """Cadastra pseudônimos para uma coorte e lista os códigos a distribuir (DO-19)."""
+    repositorio = _repositorio()
+    if repositorio is None:
+        return CODIGO_BANCO_INVALIDO
+    try:
+        codigos = repositorio.criar_participantes(coorte, quantidade)
+    except ValueError as erro:
+        _escrever([f"Nada foi cadastrado: {erro}."])
+        return CODIGO_BANCO_INVALIDO
+    _escrever(
+        [
+            f"{len(codigos)} participante(s) cadastrado(s) na coorte `{coorte.strip()}`:",
+            *codigos,
+            "Guarde o vínculo código↔estudante só em `data/identidade/`, fora do banco e do git.",
+        ]
+    )
+    return CODIGO_OK
+
+
+def excluir_dados(participante: str | None, expirados: bool) -> int:
+    """Apaga os dados de um participante, ou de todos com prazo vencido, e registra (DO-14)."""
+    from adia.persistencia.repositorio import ParticipanteDesconhecido
+
+    repositorio = _repositorio()
+    if repositorio is None:
+        return CODIGO_BANCO_INVALIDO
+    if expirados:
+        codigos = repositorio.expirados()
+        for codigo in codigos:
+            repositorio.excluir_participante(codigo, "prazo_expirado")
+        _escrever([f"{len(codigos)} participante(s) com prazo vencido excluído(s).", *codigos])
+        return CODIGO_OK
+    assert participante is not None
+    try:
+        eventos = repositorio.excluir_participante(participante, "pedido")
+    except ParticipanteDesconhecido:
+        _escrever([f"Participante `{participante}` não existe no banco. Nada foi excluído."])
+        return CODIGO_BANCO_INVALIDO
+    _escrever([f"Dados de `{participante}` excluídos ({eventos} evento(s)). A exclusão foi registrada."])
+    return CODIGO_OK
 
 
 # --------------------------------------------------------------------------- #
@@ -966,8 +1022,23 @@ def construir_analisador() -> argparse.ArgumentParser:
     subguarda = guarda.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
     subguarda.add_parser("verificar", help=_ajuda_pendente("guarda verificar"))
 
-    for chave in ("indexar", "replay", "exportar", "excluir-dados", "benchmark"):
+    for chave in ("indexar", "replay", "exportar"):
         comandos.add_parser(chave, help=_ajuda_pendente(chave))
+
+    exclusao = comandos.add_parser(
+        "excluir-dados", help="exclui os dados de um pseudônimo e registra a execução na auditoria (DO-14)"
+    )
+    alvo = exclusao.add_mutually_exclusive_group(required=True)
+    alvo.add_argument("--participante", metavar="P-NNNN", help="exclui este participante, a pedido")
+    alvo.add_argument("--expirados", action="store_true", help="exclui todos com prazo de retenção vencido")
+
+    comandos.add_parser("benchmark", help=_ajuda_pendente("benchmark"))
+
+    participantes = comandos.add_parser("participantes", help="cadastro de pseudônimos de participantes")
+    subparticipantes = participantes.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
+    criar = subparticipantes.add_parser("criar", help="cadastra pseudônimos P-NNNN para uma coorte")
+    criar.add_argument("--coorte", required=True, help="nome da coorte (turma ou rodada de coleta)")
+    criar.add_argument("--quantidade", type=int, required=True, help="quantos códigos criar")
 
     return analisador
 
@@ -990,6 +1061,11 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
             return itens_validar(alvo)
         if chave == "itens formatar":
             return itens_formatar(alvo)
+
+    if chave == "excluir-dados":
+        return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
+    if chave == "participantes criar":
+        return participantes_criar(str(espaco.coorte), int(espaco.quantidade))
 
     pendente = PENDENTES.get(chave)
     if pendente is None:

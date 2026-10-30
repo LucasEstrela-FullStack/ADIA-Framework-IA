@@ -5,7 +5,7 @@ desafio independente, com o gatilho de *fading* ao fim de cada desafio (R12.1). 
 relógio, sem rede, sem IA. Quem chama corrige a resposta e informa o acerto.
 
 shortcut: termina após o terceiro ciclo; projeto STEAM e teste de retenção de 7 dias ficam
-fora do percurso, e o estado vive só em memória. Acrescentar com a persistência em SQLite.
+fora do percurso. Acrescentar quando o protocolo da retenção for implementado.
 """
 
 from __future__ import annotations
@@ -99,13 +99,15 @@ class Sessao:
             self._dicas_do_item.append(nivel)
         return item
 
-    def responder(self, acerto: bool | None, confianca: int) -> ResumoDoCiclo | None:
+    def responder(self, acerto: bool | None, confianca: int, justificativa: str = "") -> ResumoDoCiclo | None:
         """Registra a resposta do item atual e avança. Devolve o resumo quando um ciclo fecha."""
         item = self.item_atual
         if item is None or self.encerrada:
             raise OperacaoRecusada("Sessão encerrada.")
         if not 0 <= confianca <= 10:
             raise OperacaoRecusada("Confiança deve estar entre 0 e 10.")
+        if self.justificativa_exigida and not justificativa.strip():
+            raise OperacaoRecusada("Conte como você chegou à resposta antes de enviar.")
         assert isinstance(self.etapa, Etapa)
         self.respostas.append(
             Resposta(self.etapa, self.ciclo, item.id, acerto, confianca, tuple(self._dicas_do_item))

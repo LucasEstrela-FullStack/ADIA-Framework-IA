@@ -1085,6 +1085,55 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 
 ---
 
+## DO-37 — Participante cadastrado pelo pesquisador; condição sorteada pelo servidor
+
+- **Data:** 2026-10-30
+- **Decisão:** o pesquisador cadastra pseudônimos `P-NNNN` por coorte com
+  `adia participantes criar`. O estudante entra só com o código. A sessão é criada pelo
+  servidor, uma por participante, com a condição sorteada pela regra de DO-07 dentro de uma
+  transação `BEGIN IMMEDIATE`, e a semente do sorteio é gravada em `sessao`. A condição não
+  sai na resposta da API.
+- **Justificativa:** a primeira versão da interface deixava o estudante escolher a condição,
+  o que destruía a randomização e o cegamento. Código pré-cadastrado impede que um texto
+  qualquer crie participante, e o vínculo com a identidade continua fora do banco (DO-19).
+- **Origem:** R14.1, DO-07, DO-19.
+- **Revalidação:** a condição C ainda é decisão de pesquisa pendente; se sair do piloto,
+  `CONDICOES_DO_ESTUDO` passa a ter só A e B.
+
+## DO-38 — Registro append-only com exclusão controlada e decisão gravada por ciclo
+
+- **Data:** 2026-10-30
+- **Decisão:** `evento`, `decisao_ciclo` e `exclusao` recusam `UPDATE` e `DELETE` por
+  gatilho. A única exceção é `adia excluir-dados`, que apaga eventos e decisões só enquanto o
+  participante está em `exclusao_em_curso`, na mesma transação, e grava a execução em
+  `exclusao` sem outro dado além do pseudônimo. Cada ciclo grava a decisão, o teto indicado,
+  o aplicado e se ela foi aplicada (condição B) ou sombra (A e C). A sessão grava a
+  proveniência: hash do banco de itens, commit, modelo e versão dos limiares. O replay confere
+  etapa, ciclo, item, teto e decisão contra o gravado e recusa a sessão na divergência.
+- **Justificativa:** reescrever evento reescreveria a medida, mas a LGPD e DO-14 exigem
+  apagar dados de menores a pedido e no prazo. Recalcular a decisão no replay faria uma
+  mudança de limiar alterar em silêncio o que foi medido.
+- **Origem:** R14.2, R14.4, R25.7, R26; DO-14.
+- **Revalidação:** o prazo de 180 dias conta hoje da conclusão da sessão; passa a contar da
+  conclusão do teste de retenção quando ele existir, como DO-14 manda.
+
+## DO-39 — A API só atende no laço local e só para `Host` conhecido
+
+- **Data:** 2026-10-30
+- **Decisão:** a API recusa com 403 todo pedido quando o servidor escuta em endereço que não é
+  `127.0.0.1` ou `::1`, e com 400 todo `Host` fora de `127.0.0.1`, `localhost` e `[::1]`. A
+  explicação do estudante chega ao modelo entre marcadores, com até 500 caracteres e a
+  instrução de ignorar ordens escritas nela. O motivo gravado quando a IA falha é fixo; o
+  detalhe técnico vai só para o log local.
+- **Justificativa:** D11 dispensa autenticação porque a API não é alcançável de fora. Sem a
+  recusa, `--host 0.0.0.0` exporia dados de estudante à rede da escola; sem a lista de `Host`,
+  uma página aberta no navegador do estudante alcançaria a API por *DNS rebinding*.
+- **Origem:** D11, R24.8.
+- **Revalidação:** qualquer exposição além da máquina local exige autenticação e as
+  pré-condições de D11.
+
+---
+
 ## Pendências
 
 Decisões operacionais que o design já identifica mas cujo valor pertence a código ainda não

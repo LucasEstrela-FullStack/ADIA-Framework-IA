@@ -319,7 +319,7 @@ def test_relatorio_conforme_nao_lista_correcao() -> None:
 
 
 def test_os_nove_comandos_do_design_estao_declarados() -> None:
-    """Design §3.18 declara nove comandos; a ajuda os lista todos."""
+    """Design §3.18 declara nove comandos, e `participantes` é o décimo; a ajuda os lista todos."""
     assert set(cli.COMANDOS) == {
         "doutor",
         "migrar",
@@ -330,6 +330,7 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
         "exportar",
         "excluir-dados",
         "benchmark",
+        "participantes",
     }
     ajuda = cli.construir_analisador().format_help()
     for comando in cli.COMANDOS:
@@ -337,14 +338,13 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
 
 
 def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
-    """`doutor` e o grupo `itens` já estão implementados; os sete restantes seguem pendentes."""
+    """Implementados: `doutor`, `itens`, `excluir-dados` e `participantes`; os seis restantes seguem pendentes."""
     assert set(cli.PENDENTES) == {
         "migrar",
         "guarda verificar",
         "indexar",
         "replay",
         "exportar",
-        "excluir-dados",
         "benchmark",
     }
     for pendente in cli.PENDENTES.values():
@@ -361,7 +361,6 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
         ["indexar"],
         ["replay"],
         ["exportar"],
-        ["excluir-dados"],
         ["benchmark"],
     ],
 )

@@ -28,6 +28,7 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
   const [resposta, setResposta] = useState("");
   const [confianca, setConfianca] = useState(5);
   const [explicacao, setExplicacao] = useState("");
+  const [justificativa, setJustificativa] = useState("");
   const [dicas, setDicas] = useState<Dica[]>([]);
   const [carregando, setCarregando] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
     setErro(null);
     setEnviando(true);
     try {
-      const r = await api.responder(estado.id, resposta, confianca);
+      const r = await api.responder(estado.id, resposta, confianca, justificativa);
       aoAvancar(r.estado, r.ciclo_fechado);
     } catch (e) {
       setErro((e as Error).message);
@@ -77,9 +78,6 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
         <section className="cartao destaque" aria-live="polite">
           <strong>Fim do ciclo {cicloFechado.ciclo}.</strong> Acerto sem IA {porcento(cicloFechado.tai)}, com IA{" "}
           {porcento(cicloFechado.acerto_assistido)}. {DECISOES[cicloFechado.decisao]}
-          {estado.condicao !== "B" && (
-            <span className="sutil"> Na condição {estado.condicao}, a decisão é só registrada.</span>
-          )}
         </section>
       )}
 
@@ -99,7 +97,12 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
           {exigeExplicacao && (
             <label className="campo">
               Antes da primeira dica, explique o que você já tentou
-              <textarea value={explicacao} onChange={(e) => setExplicacao(e.target.value)} rows={2} />
+              <textarea
+                value={explicacao}
+                onChange={(e) => setExplicacao(e.target.value)}
+                rows={2}
+                maxLength={500}
+              />
             </label>
           )}
           <div className="dicas">
@@ -134,7 +137,10 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
           <input value={resposta} onChange={(e) => setResposta(e.target.value)} autoFocus required />
         </label>
         {estado.justificativa_exigida && (
-          <p className="aviso">Sua confiança tem ficado acima do acerto. Escreva também como chegou à resposta.</p>
+          <label className="campo">
+            Conte como você chegou a essa resposta
+            <textarea value={justificativa} onChange={(e) => setJustificativa(e.target.value)} rows={3} required />
+          </label>
         )}
         <label className="campo">
           <span>
@@ -153,7 +159,15 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
             {erro}
           </p>
         )}
-        <button className="primario" disabled={enviando || !resposta.trim()}>
+        <button
+          className="primario"
+          disabled={
+            enviando ||
+            carregando !== null ||
+            !resposta.trim() ||
+            (estado.justificativa_exigida && !justificativa.trim())
+          }
+        >
           Enviar resposta
         </button>
       </form>
