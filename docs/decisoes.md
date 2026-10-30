@@ -1170,6 +1170,22 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** a qualidade foi julgada por 9 amostras por modelo; ler as 36 do relatório
   antes do piloto. Trocar de modelo exige novo benchmark e muda a proveniência das sessões.
 
+## DO-41 — O estudante não vê acerto, desempenho nem condição
+
+- **Data:** 2026-10-30
+- **Decisão:** a API devolve à tela do estudante só o problema, a etapa, a rodada, o teto de
+  dicas e o número da rodada que acabou de fechar. Acerto por item, métricas, decisão de
+  regulação e condição ficam no banco, para o painel do pesquisador. A tela de fim só
+  agradece. A confiança é escolhida numa escala de 0 a 10 sem valor marcado de início.
+- **Justificativa:** mostrar o próprio desempenho entre rodadas é uma intervenção que o
+  protocolo não prevê, e se aparecesse só em algumas condições confundiria o efeito de
+  regular a ajuda. Sem métricas na tela, o aviso de R25.8 não precisa aparecer para o
+  estudante. A confiança pré-marcada em 5 entraria no viés como se o estudante a tivesse
+  escolhido.
+- **Origem:** R25.8; decisão de pesquisa 4 da revisão de 2026-10-30, ainda aberta.
+- **Revalidação:** se o pesquisador decidir dar retorno de desempenho, ele entra igual nas
+  três condições e com o aviso de R25.8.
+
 ---
 
 ## Pendências

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, type Estado, type Saude } from "../api/cliente";
 
 // A condição experimental é sorteada pelo servidor (DO-07) e não aparece aqui: o estudante
@@ -6,12 +6,16 @@ import { api, type Estado, type Saude } from "../api/cliente";
 export function Inicio({ aoComecar }: { aoComecar: (estado: Estado) => void }) {
   const [codigo, setCodigo] = useState("");
   const [saude, setSaude] = useState<Saude | null>(null);
+  const [semSistema, setSemSistema] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
-    api.saude().then(setSaude, () => setErro("O sistema ainda não está pronto. Avise o pesquisador."));
+  const verificar = useCallback(() => {
+    setSemSistema(false);
+    api.saude().then(setSaude, () => setSemSistema(true));
   }, []);
+
+  useEffect(verificar, [verificar]);
 
   async function comecar(evento: FormEvent) {
     evento.preventDefault();
@@ -46,8 +50,14 @@ export function Inicio({ aoComecar }: { aoComecar: (estado: Estado) => void }) {
             required
           />
         </label>
-        {saude && !saude.ia_disponivel && (
-          <p className="sutil">As dicas vão usar textos prontos hoje.</p>
+        {saude && !saude.ia_disponivel && <p className="sutil">As dicas vão usar textos prontos hoje.</p>}
+        {semSistema && (
+          <p className="erro" role="alert">
+            O sistema ainda não está pronto. Avise o pesquisador.{" "}
+            <button type="button" onClick={verificar}>
+              Tentar de novo
+            </button>
+          </p>
         )}
         {erro && (
           <p className="erro" role="alert">

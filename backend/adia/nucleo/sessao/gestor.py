@@ -90,11 +90,13 @@ class Sessao:
         """Valida o pedido de dica do item atual e o registra (R6.4, R10.1)."""
         item = self.item_atual
         if item is None or not self.com_ia:
-            raise OperacaoRecusada("A IA está desativada nesta etapa.")
+            raise OperacaoRecusada("Nesta parte você resolve sem dicas. Escreva sua resposta e envie.")
         if nivel > self.teto:
-            raise OperacaoRecusada(f"Nível {nivel.name} acima do teto vigente {self.teto.name}.")
+            raise OperacaoRecusada(
+                f"Essa dica ainda não está liberada nesta rodada. Use as dicas até o nível {int(self.teto)}."
+            )
         if self.onloading and not self._dicas_do_item and not explicacao.strip():
-            raise OperacaoRecusada("Explique o que você já tentou antes de pedir a primeira dica.")
+            raise OperacaoRecusada("Antes da primeira dica, conte o que você já tentou.")
         if nivel not in self._dicas_do_item:
             self._dicas_do_item.append(nivel)
         return item
@@ -103,9 +105,9 @@ class Sessao:
         """Registra a resposta do item atual e avança. Devolve o resumo quando um ciclo fecha."""
         item = self.item_atual
         if item is None or self.encerrada:
-            raise OperacaoRecusada("Sessão encerrada.")
+            raise OperacaoRecusada("Você já terminou. Pode fechar esta tela.")
         if not 0 <= confianca <= 10:
-            raise OperacaoRecusada("Confiança deve estar entre 0 e 10.")
+            raise OperacaoRecusada("Escolha o quanto você está seguro, de 0 a 10.")
         if self.justificativa_exigida and not justificativa.strip():
             raise OperacaoRecusada("Conte como você chegou à resposta antes de enviar.")
         assert isinstance(self.etapa, Etapa)

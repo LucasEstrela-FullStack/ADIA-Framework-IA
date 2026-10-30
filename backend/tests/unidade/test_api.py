@@ -60,4 +60,11 @@ def test_fluxo_com_participante_cadastrado_sem_expor_a_condicao(app: FastAPI, ra
     assert cliente.post("/api/sessoes/nao-existe/respostas", json={"resposta": "1", "confianca": 5}).status_code == 404
     resposta = cliente.post(f"/api/sessoes/{estado['id']}/respostas", json={"resposta": "1", "confianca": 5})
     assert resposta.status_code == 200
-    assert resposta.json()["estado"]["restantes"] == estado["restantes"] - 1
+    corpo = resposta.json()
+    assert set(corpo) == {"ciclo_concluido", "estado"}, "acerto e métricas não voltam para a tela"
+    assert "ciclos" not in corpo["estado"]
+    assert corpo["estado"]["restantes"] == estado["restantes"] - 1
+
+    vazia = cliente.post(f"/api/sessoes/{estado['id']}/respostas", json={"resposta": "  ", "confianca": 5})
+    assert vazia.status_code == 409
+    assert vazia.json()["detail"] == "Escreva sua resposta antes de enviar."

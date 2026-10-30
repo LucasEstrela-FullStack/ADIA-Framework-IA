@@ -1,22 +1,69 @@
-import { useState } from "react";
-import type { Ciclo, Estado } from "./api/cliente";
+import { useEffect, useState } from "react";
+import { api, ErroDaApi, type Estado } from "./api/cliente";
+import { Fim } from "./paginas/Fim";
 import { Inicio } from "./paginas/Inicio";
 import { Item } from "./paginas/Item";
-import { Resultados } from "./paginas/Resultados";
+
+const CHAVE_DA_SESSAO = "adia.sessao";
+
+// O id da sessão sobrevive a F5 e a aba fechada: o servidor reconstrói a sessão pelos eventos.
+function lerSessaoGuardada(): string | null {
+  try {
+    return localStorage.getItem(CHAVE_DA_SESSAO);
+  } catch {
+    return null;
+  }
+}
+
+function guardarSessao(id: string | null) {
+  try {
+    if (id === null) localStorage.removeItem(CHAVE_DA_SESSAO);
+    else localStorage.setItem(CHAVE_DA_SESSAO, id);
+  } catch {
+    // Sem armazenamento local a sessão só não sobrevive ao recarregar.
+  }
+}
 
 export function App() {
   const [estado, setEstado] = useState<Estado | null>(null);
-  const [cicloFechado, setCicloFechado] = useState<Ciclo | null>(null);
+  const [cicloConcluido, setCicloConcluido] = useState<number | null>(null);
+  const [retomando, setRetomando] = useState(() => lerSessaoGuardada() !== null);
 
-  if (estado === null) return <Inicio aoComecar={setEstado} />;
-  if (estado.item === null) return <Resultados estado={estado} aoReiniciar={() => setEstado(null)} />;
+  useEffect(() => {
+    const guardada = lerSessaoGuardada();
+    if (guardada === null) return;
+    api
+      .ler(guardada)
+      .then(setEstado, (erro: unknown) => {
+        if (erro instanceof ErroDaApi && erro.status === 404) guardarSessao(null);
+      })
+      .finally(() => setRetomando(false));
+  }, []);
+
+  function comecar(novo: Estado) {
+    guardarSessao(novo.id);
+    setEstado(novo);
+  }
+
+  if (retomando) return <main className="pagina" aria-busy="true" />;
+  if (estado === null) return <Inicio aoComecar={comecar} />;
+  if (estado.item === null) {
+    return (
+      <Fim
+        aoSair={() => {
+          guardarSessao(null);
+          setEstado(null);
+        }}
+      />
+    );
+  }
   return (
     <Item
       key={estado.item.id}
       estado={estado}
-      cicloFechado={cicloFechado}
+      cicloConcluido={cicloConcluido}
       aoAvancar={(novo, ciclo) => {
-        setCicloFechado(ciclo);
+        setCicloConcluido(ciclo);
         setEstado(novo);
       }}
     />

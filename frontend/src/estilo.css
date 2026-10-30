@@ -55,12 +55,18 @@ h2 { margin: 0 0 12px; font-size: 1.05rem; }
 input, textarea { font: inherit; color: inherit; background: var(--fundo); border: 1px solid var(--borda); border-radius: 6px; padding: 8px; }
 input[type="range"] { padding: 0; accent-color: var(--acento); }
 button { font: inherit; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--borda); background: var(--superficie); color: var(--texto); cursor: pointer; }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
 .primario { justify-self: start; background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
 .dicas { display: flex; flex-wrap: wrap; gap: 8px; }
 .dica { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--acento); }
 .dica p { margin: 4px 0 0; }
-.tabela { overflow-x: auto; }
-table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borda); white-space: nowrap; }
+.escala { border: 0; padding: 0; margin: 0 0 12px; }
+.escala legend { padding: 0; margin-bottom: 6px; }
+.opcoes-escala { display: flex; flex-wrap: wrap; gap: 4px; }
+.opcao-escala { position: relative; }
+.opcao-escala input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.opcao-escala span { display: inline-grid; place-items: center; min-width: 40px; min-height: 40px; border: 1px solid var(--borda); border-radius: 6px; background: var(--superficie); }
+.opcao-escala input:checked + span { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.opcao-escala input:focus-visible + span { outline: 2px solid var(--acento); outline-offset: 2px; }
+.pontas { display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 4px; }

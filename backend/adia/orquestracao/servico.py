@@ -22,7 +22,7 @@ from pathlib import Path
 from adia.guarda.veredito import revela_resposta
 from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao
 from adia.ia.subagentes.papeis import PAPEIS, pedido
-from adia.nucleo.correcao.motor import Julgamento, Resultado, corrigir
+from adia.nucleo.correcao.motor import MOTIVO_VAZIA, Julgamento, Resultado, corrigir
 from adia.nucleo.itens.banco import BancoDeItens
 from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carregar
 from adia.nucleo.itens.modelo import Item
@@ -180,10 +180,14 @@ class Servico:
             sessao = self.obter(sessao_id)
             item = sessao.item_atual
             if item is None:
-                raise OperacaoRecusada("Sessão encerrada.")
+                raise OperacaoRecusada("Você já terminou. Pode fechar esta tela.")
             julgamento = corrigir(item, resposta)
+            if julgamento.motivo_rejeicao == MOTIVO_VAZIA:
+                raise OperacaoRecusada("Escreva sua resposta antes de enviar.")
             if julgamento.motivo_rejeicao is not None:
-                raise OperacaoRecusada(julgamento.motivo_rejeicao)
+                raise OperacaoRecusada(
+                    f"Sua resposta passou de {item.tamanho_max_resposta} caracteres. Escreva só o resultado."
+                )
             acerto = julgamento.resultado is Resultado.ACERTO if isinstance(julgamento.resultado, Resultado) else None
             try:
                 with self.repositorio.transacao() as conexao:

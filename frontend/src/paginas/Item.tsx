@@ -1,32 +1,31 @@
 import { useState, type FormEvent } from "react";
-import { api, type Ciclo, type Dica, type Estado } from "../api/cliente";
-import { porcento } from "./formato";
+import { api, type Dica, type Estado } from "../api/cliente";
 
 const ETAPAS: Record<string, string> = {
-  linha_de_base: "Linha de base",
-  pratica_assistida: "Prática assistida",
-  desafio_independente: "Desafio independente",
+  linha_de_base: "Aquecimento",
+  pratica_assistida: "Prática com dicas",
+  desafio_independente: "Desafio sem dicas",
 };
 
 const NIVEIS = [
-  { nivel: 1, nome: "L1 · Pergunta" },
-  { nivel: 2, nome: "L2 · Conceito" },
-  { nivel: 3, nome: "L3 · Primeiro passo" },
-  { nivel: 4, nome: "L4 · Exemplo" },
+  { nivel: 1, nome: "Pergunta para pensar" },
+  { nivel: 2, nome: "Ideia-chave" },
+  { nivel: 3, nome: "Primeiro passo" },
+  { nivel: 4, nome: "Exemplo parecido" },
 ];
 
-const DECISOES: Record<string, string> = {
-  fading: "Fading: o teto de ajuda desce um nível.",
-  onloading: "Onloading: explique o que tentou antes de pedir dica.",
-  escalonar: "Escalonar: o teto de ajuda sobe um nível.",
-  manter: "Manter: o teto de ajuda fica igual.",
+const ESCALA = Array.from({ length: 11 }, (_, i) => i);
+
+type Props = {
+  estado: Estado;
+  cicloConcluido: number | null;
+  aoAvancar: (estado: Estado, cicloConcluido: number | null) => void;
 };
 
-type Props = { estado: Estado; cicloFechado: Ciclo | null; aoAvancar: (estado: Estado, ciclo: Ciclo | null) => void };
-
-export function Item({ estado, cicloFechado, aoAvancar }: Props) {
+export function Item({ estado, cicloConcluido, aoAvancar }: Props) {
   const [resposta, setResposta] = useState("");
-  const [confianca, setConfianca] = useState(5);
+  // Sem valor inicial: um 5 pré-marcado entraria no viés como se o estudante o tivesse escolhido.
+  const [confianca, setConfianca] = useState<number | null>(null);
   const [explicacao, setExplicacao] = useState("");
   const [justificativa, setJustificativa] = useState("");
   const [dicas, setDicas] = useState<Dica[]>([]);
@@ -34,7 +33,7 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const item = estado.item!;
-  const exigeExplicacao = estado.onloading && dicas.length === 0;
+  const exigeExplicacao = estado.onloading && estado.dicas_usadas.length === 0 && dicas.length === 0;
 
   async function pedirDica(nivel: number) {
     setErro(null);
@@ -51,52 +50,55 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
+    if (confianca === null) return;
     setErro(null);
     setEnviando(true);
     try {
       const r = await api.responder(estado.id, resposta, confianca, justificativa);
-      aoAvancar(r.estado, r.ciclo_fechado);
+      aoAvancar(r.estado, r.ciclo_concluido);
     } catch (e) {
       setErro((e as Error).message);
       setEnviando(false);
     }
   }
 
+  const podeEnviar =
+    !enviando &&
+    carregando === null &&
+    resposta.trim() !== "" &&
+    confianca !== null &&
+    (!estado.justificativa_exigida || justificativa.trim() !== "");
+
   return (
     <main className="pagina">
       <header className="barra">
         <span>
           <strong>{ETAPAS[estado.etapa] ?? estado.etapa}</strong>
-          {estado.ciclo > 0 && <span className="sutil"> · ciclo {estado.ciclo} de 3</span>}
+          {estado.ciclo > 0 && <span className="sutil"> · rodada {estado.ciclo} de 3</span>}
         </span>
         <span className="sutil">
-          {estado.restantes} {estado.restantes === 1 ? "item restante" : "itens restantes"}
+          {estado.restantes} {estado.restantes === 1 ? "problema restante" : "problemas restantes"}
         </span>
       </header>
 
-      {cicloFechado && (
-        <section className="cartao destaque" aria-live="polite">
-          <strong>Fim do ciclo {cicloFechado.ciclo}.</strong> Acerto sem IA {porcento(cicloFechado.tai)}, com IA{" "}
-          {porcento(cicloFechado.acerto_assistido)}. {DECISOES[cicloFechado.decisao]}
-        </section>
+      {cicloConcluido !== null && (
+        <p className="cartao destaque" role="status">
+          Você terminou a rodada {cicloConcluido} de 3. Vamos para a próxima.
+        </p>
       )}
 
-      {estado.com_ia ? (
-        <p className="selo">IA disponível · teto de ajuda L{estado.teto}</p>
-      ) : (
-        <p className="selo desligado">IA desativada nesta etapa</p>
-      )}
-
-      <section className="cartao">
+      <section className="cartao" aria-labelledby="titulo-problema">
+        <h2 id="titulo-problema">Problema</h2>
         <p className="enunciado">{item.enunciado}</p>
       </section>
 
-      {estado.com_ia && (
-        <section className="cartao">
-          <h2>Dicas</h2>
+      {estado.com_ia ? (
+        <section className="cartao" aria-labelledby="titulo-dicas">
+          <h2 id="titulo-dicas">Dicas</h2>
+          <p className="sutil">Nesta rodada você pode usar as dicas até o nível {estado.teto}.</p>
           {exigeExplicacao && (
             <label className="campo">
-              Antes da primeira dica, explique o que você já tentou
+              Antes da primeira dica, conte o que você já tentou
               <textarea
                 value={explicacao}
                 onChange={(e) => setExplicacao(e.target.value)}
@@ -112,29 +114,41 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
                 type="button"
                 onClick={() => pedirDica(nivel)}
                 disabled={nivel > estado.teto || carregando !== null || (exigeExplicacao && !explicacao.trim())}
-                title={nivel > estado.teto ? "Acima do teto de ajuda deste ciclo" : undefined}
               >
-                {carregando === nivel ? "Gerando…" : nome}
+                {nivel} · {nome}
               </button>
             ))}
           </div>
-          {[...dicas]
-            .sort((a, b) => a.nivel - b.nivel)
-            .map((d) => (
-              <blockquote key={d.nivel} className="dica">
-                <span className="sutil">
-                  L{d.nivel} · {d.origem === "ia" ? "IA local" : "texto revisado"}
-                </span>
-                <p>{d.texto}</p>
-              </blockquote>
-            ))}
+          <div aria-live="polite">
+            {carregando !== null && (
+              <p className="sutil" role="status">
+                Preparando a dica… pode levar alguns segundos.
+              </p>
+            )}
+            {[...dicas]
+              .sort((a, b) => a.nivel - b.nivel)
+              .map((d) => (
+                <blockquote key={d.nivel} className="dica">
+                  <span className="sutil">Dica {d.nivel}</span>
+                  <p>{d.texto}</p>
+                </blockquote>
+              ))}
+          </div>
         </section>
+      ) : (
+        <p className="selo desligado">Sem dicas nesta parte: resolva sozinho.</p>
       )}
 
       <form className="cartao" onSubmit={enviar}>
         <label className="campo">
           Sua resposta
-          <input value={resposta} onChange={(e) => setResposta(e.target.value)} autoFocus required />
+          <input
+            value={resposta}
+            onChange={(e) => setResposta(e.target.value)}
+            maxLength={item.tamanho_max}
+            autoFocus
+            required
+          />
         </label>
         {estado.justificativa_exigida && (
           <label className="campo">
@@ -142,32 +156,34 @@ export function Item({ estado, cicloFechado, aoAvancar }: Props) {
             <textarea value={justificativa} onChange={(e) => setJustificativa(e.target.value)} rows={3} required />
           </label>
         )}
-        <label className="campo">
-          <span>
-            Confiança na resposta: <strong>{confianca}</strong> de 10
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={confianca}
-            onChange={(e) => setConfianca(Number(e.target.value))}
-          />
-        </label>
+        <fieldset className="campo escala">
+          <legend>Quanto você está seguro da sua resposta?</legend>
+          <div className="opcoes-escala">
+            {ESCALA.map((valor) => (
+              <label key={valor} className="opcao-escala">
+                <input
+                  type="radio"
+                  name="confianca"
+                  value={valor}
+                  checked={confianca === valor}
+                  onChange={() => setConfianca(valor)}
+                  required
+                />
+                <span>{valor}</span>
+              </label>
+            ))}
+          </div>
+          <div className="pontas sutil" aria-hidden="true">
+            <span>0 = nada seguro</span>
+            <span>10 = totalmente seguro</span>
+          </div>
+        </fieldset>
         {erro && (
           <p className="erro" role="alert">
             {erro}
           </p>
         )}
-        <button
-          className="primario"
-          disabled={
-            enviando ||
-            carregando !== null ||
-            !resposta.trim() ||
-            (estado.justificativa_exigida && !justificativa.trim())
-          }
-        >
+        <button className="primario" disabled={!podeEnviar}>
           Enviar resposta
         </button>
       </form>

@@ -13,7 +13,6 @@ D11 sem autenticação só vale com a API inalcançável de fora da máquina. Du
 from __future__ import annotations
 
 import subprocess
-from decimal import ROUND_HALF_UP, Decimal
 from functools import cache
 from pathlib import Path
 from typing import Literal
@@ -27,10 +26,10 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from adia.caminhos import DIRETORIO_DE_ITENS, encontrar_raiz
 from adia.ia.cliente_ollama import ClienteOllama
 from adia.ia.subagentes.papeis import LIMITE_DA_EXPLICACAO
-from adia.nucleo.sessao.gestor import OperacaoRecusada, ResumoDoCiclo, Sessao
+from adia.nucleo.sessao.gestor import OperacaoRecusada, Sessao
 from adia.orquestracao.servico import Servico, SessaoInconsistente, SessaoInexistente
 from adia.persistencia.repositorio import BANCO_DE_DADOS, ParticipanteDesconhecido, Repositorio
-from adia.tipos import Indisponivel, Medida, Nivel
+from adia.tipos import Nivel
 
 ENDERECOS_LOCAIS = frozenset({"127.0.0.1", "::1"})
 HOSTS_PERMITIDOS = ["127.0.0.1", "localhost", "[::1]"]
@@ -68,31 +67,14 @@ class PedidoDeDica(BaseModel):
     explicacao: str = Field(default="", max_length=LIMITE_DA_EXPLICACAO)
 
 
-def _medida(valor: Medida) -> str | None:
-    """Medida em duas casas, meio para cima (DO-06); indisponível vira ``None``, nunca zero."""
-    return None if isinstance(valor, Indisponivel) else str(valor.quantize(Decimal("0.01"), ROUND_HALF_UP))
-
-
-def _ciclo(resumo: ResumoDoCiclo) -> dict[str, object]:
-    return {
-        "ciclo": resumo.ciclo,
-        "teto": resumo.teto.name,
-        "tai": _medida(resumo.acerto_independente),
-        "acerto_assistido": _medida(resumo.acerto_assistido),
-        "transferencia": _medida(resumo.transferencia),
-        "confianca": _medida(resumo.confianca),
-        "dss": _medida(resumo.dss),
-        "iic": _medida(resumo.iic),
-        "gap": _medida(resumo.decisao.gap),
-        "vies": _medida(resumo.decisao.vies),
-        "decisao": resumo.decisao.tipo.value,
-        "evidencia_incompleta": resumo.decisao.evidencia_incompleta,
-        "teto_seguinte": resumo.teto_seguinte.name,
-    }
-
-
 def _estado(sessao_id: str, sessao: Sessao) -> dict[str, object]:
-    """Estado para a tela do estudante. A condição experimental não sai daqui (cegamento)."""
+    """Estado para a tela do estudante.
+
+    Sem condição, sem métricas e sem decisão de regulação: o estudante não vê em que grupo
+    está nem o próprio desempenho entre ciclos, igual nas três condições. Mostrar desempenho
+    seria uma intervenção a mais, fora do protocolo, e é decisão de pesquisa ainda aberta.
+    Os números ficam no banco para o painel do pesquisador.
+    """
     item = sessao.item_atual
     return {
         "id": sessao_id,
@@ -104,8 +86,9 @@ def _estado(sessao_id: str, sessao: Sessao) -> dict[str, object]:
         "justificativa_exigida": sessao.justificativa_exigida,
         "restantes": len(sessao.fila),
         "dicas_usadas": [int(n) for n in sessao.dicas_do_item],
-        "item": None if item is None else {"id": item.id, "enunciado": item.enunciado},
-        "ciclos": [_ciclo(c) for c in sessao.ciclos],
+        "item": None
+        if item is None
+        else {"id": item.id, "enunciado": item.enunciado, "tamanho_max": item.tamanho_max_resposta},
     }
 
 
@@ -172,16 +155,12 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
     @app.post("/api/sessoes/{sessao_id}/respostas")
     def responder(sessao_id: str, corpo: NovaResposta) -> dict[str, object]:
         try:
-            julgamento, resumo = servico.responder(sessao_id, corpo.resposta, corpo.confianca, corpo.justificativa)
+            _, resumo = servico.responder(sessao_id, corpo.resposta, corpo.confianca, corpo.justificativa)
             estado = _estado(sessao_id, servico.obter(sessao_id))
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
-        resultado = julgamento.resultado
-        return {
-            "resultado": None if isinstance(resultado, Indisponivel) else resultado.value,
-            "ciclo_fechado": None if resumo is None else _ciclo(resumo),
-            "estado": estado,
-        }
+        # O acerto não volta para a tela: só o número da rodada que acabou de fechar.
+        return {"ciclo_concluido": None if resumo is None else resumo.ciclo, "estado": estado}
 
     @app.post("/api/sessoes/{sessao_id}/dicas")
     def pedir_dica(sessao_id: str, corpo: PedidoDeDica) -> dict[str, object]:
