@@ -80,6 +80,12 @@ _DEVEM_FICAR_FORA: dict[str, tuple[str, ...]] = {
         "exportacoes/eventos.csv",
         "data/eventos.export.csv",
     ),
+    # DO-19: diretório inteiro, `.gitkeep` incluído — a negação `!.gitkeep` não pode reabri-lo.
+    "vínculo entre pseudônimo e identidade": (
+        "data/identidade/vinculo.csv",
+        "data/identidade/.gitkeep",
+        "data/privado/vinculo-identidade.csv",
+    ),
 }
 
 
