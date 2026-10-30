@@ -333,6 +333,7 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
         "participantes",
         "painel",
         "limiares",
+        "backup",
     }
     ajuda = cli.construir_analisador().format_help()
     for comando in cli.COMANDOS:

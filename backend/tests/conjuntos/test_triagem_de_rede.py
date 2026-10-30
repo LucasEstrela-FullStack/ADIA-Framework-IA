@@ -69,7 +69,7 @@ ARQUIVO_DECISOES: Final = RAIZ / "docs" / "decisoes.md"
 
 #: Lançadores que precisam declarar as variáveis de ambiente de DO-17. O portão
 #: local e o servidor da API são os dois processos que carregam `fastapi`.
-LANCADORES: Final = ("scripts/verificar.ps1", "scripts/dev-backend.ps1")
+LANCADORES: Final = ("scripts/verificar.ps1", "scripts/dev-backend.ps1", "scripts/piloto.ps1")
 
 #: Diretórios de código próprio varridos em busca de uso de API restrita.
 ARVORES_DE_CODIGO: Final = ("backend", "ml")

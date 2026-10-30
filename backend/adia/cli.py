@@ -830,6 +830,7 @@ COMANDOS: Final = (
     "participantes",
     "painel",
     "limiares",
+    "backup",
 )
 
 
@@ -974,6 +975,22 @@ def _servico_do_projeto() -> tuple[Path, Servico] | None:
         _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
         return None
     return raiz, Servico(raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(raiz / BANCO_DE_DADOS))
+
+
+def backup(destino: str | None) -> int:
+    """Copia o banco de dados de estudante para ``destino`` (padrão: data/backups/, fora do git)."""
+    repositorio = _repositorio()
+    if repositorio is None:
+        return CODIGO_BANCO_INVALIDO
+    pasta = Path(destino) if destino else repositorio.caminho.parent / "backups"
+    copia = repositorio.copiar(pasta)
+    _escrever(
+        [
+            f"Cópia gravada em {copia}.",
+            "Ela contém dados de estudante: guarde só em disco cifrado (BitLocker) e apague ao fim do estudo.",
+        ]
+    )
+    return CODIGO_OK
 
 
 def painel() -> int:
@@ -1169,6 +1186,8 @@ def construir_analisador() -> argparse.ArgumentParser:
     )
 
     comandos.add_parser("painel", help="gera o painel do pesquisador em exportacoes/, fora da API")
+    copia = comandos.add_parser("backup", help="copia o banco de dados para data/backups/ ou outro destino")
+    copia.add_argument("--destino", metavar="CAMINHO", default=None, help="pasta de destino, de preferência cifrada")
     regras = comandos.add_parser("limiares", help="mostra os limiares da regra ou grava uma versão nova")
     for opcao in (
         "independente-fading",
@@ -1212,6 +1231,9 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         return guarda_verificar(diretorio if isinstance(diretorio, str) else None)
     if chave == "painel":
         return painel()
+    if chave == "backup":
+        destino = getattr(espaco, "destino", None)
+        return backup(destino if isinstance(destino, str) else None)
     if chave == "limiares":
         campos = (
             "independente_fading",

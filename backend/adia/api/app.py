@@ -19,6 +19,7 @@ from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -187,6 +188,12 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
         return {"nivel": int(dica.nivel), "texto": dica.texto, "origem": dica.origem, "motivo": dica.motivo}
+
+    # No piloto não há Vite: a mesma porta serve o frontend construído (`npm run build`).
+    # Montado por último, para que `/api` continue com as rotas acima.
+    construido = raiz / "frontend" / "dist"
+    if (construido / "index.html").is_file():
+        app.mount("/", StaticFiles(directory=construido, html=True), name="frontend")
 
     return app
 

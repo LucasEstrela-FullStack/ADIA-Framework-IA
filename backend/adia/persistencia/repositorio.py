@@ -306,6 +306,20 @@ class Repositorio:
             )
         return ConjuntoDeLimiares(**valores, versao=versao)
 
+    def copiar(self, pasta: Path) -> Path:
+        """Cópia consistente do banco, mesmo com a API gravando (API de backup do SQLite)."""
+        pasta.mkdir(parents=True, exist_ok=True)
+        destino = pasta / f"adia-{_agora():%Y%m%d-%H%M%S}.db"
+        origem = sqlite3.connect(self.caminho, timeout=5)
+        copia = sqlite3.connect(destino)
+        try:
+            with copia:
+                origem.backup(copia)
+        finally:
+            copia.close()
+            origem.close()
+        return destino
+
     def versao_do_esquema(self) -> int:
         with self.transacao() as conexao:
             versao: int = conexao.execute("PRAGMA user_version").fetchone()[0]
