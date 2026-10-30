@@ -16,12 +16,14 @@ from adia.cli import DIRETORIO_DE_ITENS, encontrar_raiz
 from adia.ia.cliente_ollama import ClienteOllama
 from adia.nucleo.sessao.gestor import OperacaoRecusada, ResumoDoCiclo, Sessao
 from adia.orquestracao.servico import Servico
+from adia.persistencia.repositorio import Repositorio
 from adia.tipos import Condicao, Indisponivel, Medida, Nivel
 
 _raiz = encontrar_raiz()
 if _raiz is None:
     raise RuntimeError("Raiz do projeto não encontrada (pyproject.toml e .python-version).")
-servico = Servico(_raiz / DIRETORIO_DE_ITENS, ClienteOllama())
+# data/adia.db fica fora do git pelo padrão *.db do .gitignore: contém dados de estudante.
+servico = Servico(_raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(_raiz / "data" / "adia.db"))
 app = FastAPI(title="ADIA-CognitiveLoop", version="0.1.0")
 
 

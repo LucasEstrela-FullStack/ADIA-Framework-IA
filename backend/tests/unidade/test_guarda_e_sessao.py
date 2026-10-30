@@ -13,6 +13,7 @@ from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carr
 from adia.nucleo.itens.modelo import Item
 from adia.nucleo.sessao.gestor import FIM, OperacaoRecusada, Sessao
 from adia.orquestracao.servico import Servico
+from adia.persistencia.repositorio import Repositorio
 from adia.tipos import Condicao, Etapa, Nivel, TipoDecisao
 
 _ITENS = Path(__file__).resolve().parents[3] / "data" / "itens"
@@ -74,8 +75,8 @@ class _ClienteQueVaza(ClienteOllama):
         return RespostaDoModelo("Fácil: x = 4.", 5, 1, "dublê")
 
 
-def test_dica_que_vaza_e_trocada_pela_pre_escrita() -> None:
-    servico = Servico(_ITENS, _ClienteQueVaza())
+def test_dica_que_vaza_e_trocada_pela_pre_escrita(tmp_path: Path) -> None:
+    servico = Servico(_ITENS, _ClienteQueVaza(), Repositorio(tmp_path / "adia.db"))
     sessao_id, sessao = servico.criar(Condicao.B)
     while sessao.etapa == Etapa.LINHA_DE_BASE:
         sessao.responder(True, 5)
