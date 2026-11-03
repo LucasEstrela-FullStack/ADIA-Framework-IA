@@ -1,11 +1,11 @@
-"""Cliente do Serviço_de_Inferência_Local: disponibilidade e geração.
+"""Cliente do Serviço_de_Inferência_Local: disponibilidade, geração e embeddings.
 
 Toda chamada HTTP passa por ``ClienteOllama._transporte``, a costura única que a fixture
 ``ollama_proibido`` substitui pelo dublê (design §6.4). O endereço é fixo no laço local
 (R24.8): nenhum dado de estudante sai da máquina.
 
-shortcut: sem cache de disponibilidade, sem ``embutir`` e sem aquecimento na subida da API
-(design §3.12); acrescentar quando o RAG entrar.
+shortcut: sem o cache de 5 s da disponibilidade (DO-09) e sem aquecimento na subida da API
+(design §3.12); acrescentar quando a latência da primeira dica aparecer no piloto.
 """
 
 from __future__ import annotations
@@ -17,6 +17,9 @@ import httpx
 
 MODELO_PADRAO = "qwen2.5:1.5b"
 """Modelo de D14 (``docs/decisoes.md``), escolhido pelo benchmark de 2026-10-30."""
+
+MODELO_DE_EMBEDDINGS = "bge-m3"
+"""Modelo de embeddings do RAG (DO-11)."""
 
 
 @dataclass(frozen=True)
@@ -84,6 +87,29 @@ class ClienteOllama:
             for m in modelos
             if isinstance(m, dict) and "name" in m and isinstance(m.get("size"), int)
         }
+
+    def digest(self, modelo: str) -> str | None:
+        """Identificador da versão instalada do modelo, para a proveniência do índice (R26.4)."""
+        modelos = self._transporte("/api/tags", None, 1.0).get("models")
+        if not isinstance(modelos, list):
+            raise FalhaDeGeracao("resposta inesperada de /api/tags")
+        for m in modelos:
+            if isinstance(m, dict) and m.get("name") in {modelo, f"{modelo}:latest"}:
+                digest = m.get("digest")
+                return digest if isinstance(digest, str) else None
+        return None
+
+    def embutir(self, textos: list[str], modelo: str = MODELO_DE_EMBEDDINGS) -> list[list[float]]:
+        """Um vetor por texto, na ordem, por ``POST /api/embed`` (DO-11)."""
+        dados = self._transporte("/api/embed", {"model": modelo, "input": textos, "options": {"num_gpu": 0}}, 120.0)
+        vetores = dados.get("embeddings")
+        if (
+            not isinstance(vetores, list)
+            or len(vetores) != len(textos)
+            or not all(isinstance(v, list) and v and all(isinstance(x, int | float) for x in v) for v in vetores)
+        ):
+            raise FalhaDeGeracao("resposta inesperada de /api/embed")
+        return [[float(x) for x in v] for v in vetores]
 
     def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
         """Gera até 120 tokens, com tempo limite de 20 s (design §3.12)."""

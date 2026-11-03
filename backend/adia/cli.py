@@ -76,8 +76,10 @@ from adia.caminhos import (
     ARQUIVO_PYTHON,
     CHAVE_DO_PROFESSOR,
     CONJUNTO_DA_GUARDA,
+    DIRETORIO_CORPUS,
     DIRETORIO_DE_ITENS,
     DIRETORIO_STEAM,
+    INDICE_RAG,
     MARCAS_DA_RAIZ,
     encontrar_raiz,
 )
@@ -855,12 +857,6 @@ PENDENTES: Final[dict[str, Pendente]] = {
         "8.1",
         "aplica as migrações e grava a versão vigente de esquema",
     ),
-    "indexar": Pendente(
-        "adia indexar",
-        "Fase 4",
-        "13.4",
-        "indexa `data/corpus/` com `bge-m3` e versiona o índice",
-    ),
     "replay": Pendente(
         "adia replay",
         "Fase 2",
@@ -1067,6 +1063,39 @@ def _repositorio() -> Repositorio | None:
     return Repositorio(raiz / BANCO_DE_DADOS)
 
 
+def indexar() -> int:
+    """Segmenta `data/corpus/`, pede os embeddings ao `bge-m3` local e grava o índice (DO-11)."""
+    from adia.ia.cliente_ollama import MODELO_DE_EMBEDDINGS, ClienteOllama, FalhaDeGeracao
+    from adia.ia.rag.indice import arquivos_do_corpus, construir
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return CODIGO_BANCO_INVALIDO
+    arquivos = arquivos_do_corpus(raiz / DIRETORIO_CORPUS)
+    if not arquivos:
+        _escrever([f"Nenhum arquivo .md em `{DIRETORIO_CORPUS}`: nada a indexar."])
+        return CODIGO_BANCO_INVALIDO
+    try:
+        indice = construir(arquivos, raiz / INDICE_RAG, ClienteOllama())
+    except FalhaDeGeracao as erro:
+        _escrever(
+            [
+                f"O Ollama não devolveu os embeddings: {erro}.",
+                f"Confira se ele está aberto e se `{MODELO_DE_EMBEDDINGS}` está instalado"
+                f" (`ollama pull {MODELO_DE_EMBEDDINGS}`).",
+            ]
+        )
+        return CODIGO_AMBIENTE_INVALIDO
+    _escrever(
+        [
+            f"{len(indice.trechos)} trecho(s) de {len(arquivos)} arquivo(s) indexado(s) em `{INDICE_RAG}`.",
+            f"Versão do índice: {indice.versao}. Reinicie a API para ela usar o índice novo.",
+        ]
+    )
+    return CODIGO_OK
+
+
 def professor_chave() -> int:
     """Gera a chave das rotas do professor e a mostra; a anterior deixa de valer na hora."""
     import secrets
@@ -1197,7 +1226,8 @@ def construir_analisador() -> argparse.ArgumentParser:
         )
     )
 
-    for chave in ("indexar", "replay"):
+    comandos.add_parser("indexar", help="indexa data/corpus/ com bge-m3 para o RAG das dicas")
+    for chave in ("replay",):
         comandos.add_parser(chave, help=_ajuda_pendente(chave))
 
     exportacao = comandos.add_parser(
@@ -1297,6 +1327,8 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         return participantes_criar(str(espaco.coorte), int(espaco.quantidade))
     if chave == "professor chave":
         return professor_chave()
+    if chave == "indexar":
+        return indexar()
 
     pendente = PENDENTES.get(chave)
     if pendente is None:

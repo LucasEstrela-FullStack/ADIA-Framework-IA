@@ -20,8 +20,10 @@ repositório.
 .\scripts\piloto.ps1 preparar
 ```
 
-Instala as dependências pelos arquivos de bloqueio, constrói as telas e baixa
-`qwen2.5:1.5b` e `bge-m3` no Ollama. Depois disso, nada mais precisa de rede.
+Instala as dependências pelos arquivos de bloqueio, constrói as telas, baixa
+`qwen2.5:1.5b` e `bge-m3` no Ollama e indexa `data/corpus/` para o RAG das dicas. Depois
+disso, nada mais precisa de rede. Se o corpus mudar, rode `uv run adia indexar` de novo e
+reinicie a API. O corpus inicial precisa da revisão do professor antes da coleta (DO-47).
 
 Cadastre os participantes e guarde o vínculo código ↔ estudante só em `data/identidade/`,
 que fica fora do banco e do git:

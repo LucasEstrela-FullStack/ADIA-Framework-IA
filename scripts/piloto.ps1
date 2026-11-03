@@ -42,6 +42,8 @@ if ($acao -eq "preparar") {
         ollama pull $modelo
         if ($LASTEXITCODE -ne 0) { Falhar "ollama pull $modelo falhou. O Ollama esta instalado e aberto?" }
     }
+    uv run --frozen adia indexar
+    if ($LASTEXITCODE -ne 0) { Falhar "A indexacao do corpus do RAG falhou: veja a mensagem acima." }
     Write-Host "Pronto. A partir daqui o piloto roda sem rede."
     exit 0
 }

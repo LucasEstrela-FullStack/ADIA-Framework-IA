@@ -1322,6 +1322,38 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Revalidação:** dicas no projeto, peso de cada medida na pontuação STEAM e avaliação por
   critério em mais de uma visita, quando a pesquisa decidir.
 
+## DO-47 — Papel pelo nível, sem classificador, e RAG com corpus inicial revisável
+
+- **Data:** 2026-11-03
+- **Decisão:**
+  - **roteador.** O papel do sub-agente é o do nível que o estudante pediu dentro do teto:
+    L1 metacognitivo, L2 conceitual, L3 procedural e L4 exemplo pré-escrito. Não há
+    classificador TF-IDF, e o limiar de DO-04 fica sem uso enquanto esta decisão valer;
+  - **RAG.** `adia indexar` segmenta `data/corpus/*.md` como DO-11 manda, pede os
+    embeddings ao `bge-m3` local em lotes de 16 e grava `data/indice_rag/indice.db`, um
+    SQLite separado do banco de pesquisa, com versão `bge-m3@<digest>:<hash do corpus>`. A
+    API só usa o índice cujo hash bate com o corpus atual; sem índice, sobe com aviso no log
+    e as dicas seguem só com o material do item;
+  - **uso.** Só L2 e L3 recebem trecho. A consulta é o enunciado junto com a dica
+    pré-escrita do nível, porque o enunciado sozinho caía sempre no texto introdutório. A
+    busca é exaustiva sobre os três mais próximos (D13), e o primeiro trecho que a guarda não
+    acusa de revelar a resposta entra no pedido. O trecho escolhido fica em memória por item
+    e nível. A
+    dica gerada registra `versão#id` do trecho em `evento.trecho_rag`, exportado em
+    `trecho_rag`;
+  - **corpus.** Sete textos curtos sobre equação linear, escritos para este protótipo sem
+    nenhum número que seja gabarito do banco. O teste
+    `test_corpus_real_segmenta_e_nao_revela_resposta_de_item_nenhum` passa a ser o portão.
+- **Justificativa:** o estudante escolhe o nível por botão e não escreve pedido, então um
+  classificador não teria o que ler, e não há conjunto rotulado para treiná-lo. O índice
+  fica fora do banco de pesquisa porque não contém dado de estudante e é descartável. O
+  filtro da guarda antes do pedido fecha o risco que DO-11 aponta: trecho que traz o
+  gabarito faz o modelo repeti-lo.
+- **Origem:** R21.4, R21.5, R26.4; DO-04, DO-11, D13.
+- **Revalidação:** o corpus foi escrito pelo assistente e precisa da revisão do professor
+  antes do piloto. O classificador volta a ser decisão quando houver pedido em texto livre
+  e um conjunto rotulado.
+
 ---
 
 ## Pendências

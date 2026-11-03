@@ -4,8 +4,8 @@ O roteamento é por nível: a regra de regulação decide o nível e cada nível
 L4 (exemplo resolvido) não chama o modelo: o exemplo pré-escrito do item já é análogo e
 revisado, e um exemplo gerado é o caminho mais curto para vazar a resposta.
 
-shortcut: sem o classificador TF-IDF do roteador (design §3.8) e sem RAG; a dica
-pré-escrita do item entra no pedido como material de apoio no lugar do trecho recuperado.
+O papel sai do nível autorizado, sem classificador (DO-47). L2 e L3 recebem, além da dica
+pré-escrita, o trecho do material da disciplina que o RAG recuperou para o problema.
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ LIMITE_DA_EXPLICACAO = 500
 """Caracteres da explicação do estudante que chegam ao modelo."""
 
 
-def pedido(enunciado: str, apoio: str, explicacao: str) -> str:
+def pedido(enunciado: str, apoio: str, explicacao: str, trecho: str | None = None) -> str:
     """Texto enviado ao modelo para o problema, com o material de apoio do nível.
 
     A explicação do estudante é dado, não instrução: vai entre marcadores, truncada, com os
@@ -42,6 +42,8 @@ def pedido(enunciado: str, apoio: str, explicacao: str) -> str:
     continua sendo a defesa final contra vazamento.
     """
     partes = [f"Problema: {enunciado}", f"Material de apoio (não copie literalmente): {apoio}"]
+    if trecho:
+        partes.append(f"Trecho do material da disciplina (use como referência, não copie): {trecho}")
     texto = explicacao.strip()[:LIMITE_DA_EXPLICACAO].replace("<", "").replace(">", "")
     if texto:
         partes.append(

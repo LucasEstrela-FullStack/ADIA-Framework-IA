@@ -2,7 +2,7 @@
 
 **Adaptive Decremental Assistance in AI-Supported Learning.** Protótipo de pesquisa que mede quanto um estudante consegue fazer sozinho depois de praticar com IA e, com base nisso, retira o apoio da IA aos poucos.
 
-> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. Depois do pós-teste vem o projeto STEAM: as partes numéricas são corrigidas na hora e o professor avalia a justificativa por rubrica em `/#professor`. O painel do pesquisador sai com `uv run adia painel`, e o roteiro de uma coleta numa escola está em [`docs/piloto.md`](docs/piloto.md). Ainda falta o RAG.
+> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. Depois do pós-teste vem o projeto STEAM: as partes numéricas são corrigidas na hora e o professor avalia a justificativa por rubrica em `/#professor`. O painel do pesquisador sai com `uv run adia painel`, e o roteiro de uma coleta numa escola está em [`docs/piloto.md`](docs/piloto.md). As dicas conceitual e procedural recebem um trecho do material da disciplina, recuperado pelo RAG de `data/corpus/` (`uv run adia indexar`).
 
 ## Mapa geral
 
@@ -235,7 +235,7 @@ ADIA-Framework/
 - [x] Fase 1, núcleo: banco de itens, correção, regra de regulação, métricas e sessão, com testes
 - [x] Fase 2, API: FastAPI, SQLite, registro de eventos e exportação CSV
 - [x] Fase 3, interface: telas do estudante, projeto STEAM e correção por rubrica
-- [ ] Fase 4, IA local: benchmark, sub-agentes e guarda prontos; faltam o roteador e o RAG
+- [x] Fase 4, IA local: benchmark, sub-agentes, guarda e RAG; o papel sai do nível, sem classificador (DO-47)
 - [ ] Fase 5, painel: limiares versionados, painel do pesquisador e rubrica prontos; falta o mapa de calor
 - [ ] Fase 6, validação: alunos simulados, análise de poder e DKT
 - [ ] Fase 7, piloto: teste com estudantes e ajustes (roteiro em `docs/piloto.md`)

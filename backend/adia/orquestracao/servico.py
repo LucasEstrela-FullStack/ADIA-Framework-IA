@@ -24,6 +24,7 @@ from pathlib import Path
 
 from adia.guarda.veredito import revela_resposta
 from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao
+from adia.ia.rag.indice import Indice, Trecho
 from adia.ia.subagentes.papeis import PAPEIS, pedido
 from adia.nucleo.correcao.motor import MOTIVO_AGUARDANDO_RUBRICA, MOTIVO_VAZIA, Julgamento, Resultado, corrigir
 from adia.nucleo.itens.banco import BancoDeItens
@@ -55,6 +56,8 @@ class Dica:
     origem: str
     """``ia`` quando o modelo gerou e a guarda aprovou; ``pre-escrita`` nos demais casos."""
     motivo: str | None = None
+    trecho: str | None = None
+    """``versão do índice#id do trecho`` que entrou no pedido de uma dica ``ia`` (R26.4)."""
 
 
 class SessaoInexistente(OperacaoRecusada):
@@ -86,6 +89,7 @@ class Servico:
         commit: str | None = None,
         semente: int = 20261030,
         diretorio_steam: Path | None = None,
+        rag: Indice | None = None,
         agora: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         arquivos = arquivos_de_itens(diretorio_de_itens)
@@ -94,6 +98,8 @@ class Servico:
             # A API recusa servir com banco inválido (design §7), nomeando o erro.
             raise RuntimeError(f"Banco de itens inválido: {carga}")
         self.carga = carga
+        self.rag = rag
+        self._trechos: dict[tuple[str, Nivel], Trecho | None] = {}
         try:
             self.steam = carregar_steam(arquivos_de_steam(diretorio_steam) if diretorio_steam else ())
         except ErroDeSteam as erro:
@@ -398,7 +404,12 @@ class Servico:
                 dica = self._gerar(item, nivel, explicacao)
                 with self.repositorio.transacao() as conexao:
                     Repositorio.registrar_dica(
-                        conexao, sessao_id, sessao, nivel, explicacao, (dica.texto, dica.origem, dica.motivo)
+                        conexao,
+                        sessao_id,
+                        sessao,
+                        nivel,
+                        explicacao,
+                        (dica.texto, dica.origem, dica.motivo, dica.trecho),
                     )
             except BaseException:
                 if not ja_registrada:
@@ -411,12 +422,41 @@ class Servico:
         papel = PAPEIS.get(nivel)
         if papel is None:
             return Dica(nivel, pre_escrita, "pre-escrita", "exemplo resolvido revisado")
+        trecho = self._trecho(item, nivel) if nivel in (Nivel.L2, Nivel.L3) else None
         try:
-            gerada = self.cliente.gerar(papel, pedido(item.enunciado, pre_escrita, explicacao))
+            gerada = self.cliente.gerar(
+                papel, pedido(item.enunciado, pre_escrita, explicacao, None if trecho is None else trecho.texto)
+            )
         except FalhaDeGeracao as erro:
             # O detalhe (URL, exceção) fica só no log local; o registro de pesquisa leva o motivo fixo.
             _log.warning("geração indisponível: %s", erro)
             return Dica(nivel, pre_escrita, "pre-escrita", "IA indisponível")
         if revela_resposta(gerada.texto, item):
             return Dica(nivel, pre_escrita, "pre-escrita", "guarda descartou a dica gerada")
-        return Dica(nivel, gerada.texto, "ia")
+        origem_do_trecho = None if trecho is None or self.rag is None else f"{self.rag.versao}#{trecho.id}"
+        return Dica(nivel, gerada.texto, "ia", trecho=origem_do_trecho)
+
+    def _trecho(self, item: Item, nivel: Nivel) -> Trecho | None:
+        """Trecho do corpus mais próximo do problema que não revela a resposta do item.
+
+        A consulta é o enunciado junto com a dica pré-escrita do nível: o enunciado sozinho
+        ("Resolva a equação...") cai sempre no texto introdutório, e a dica nomeia o conceito.
+
+        A guarda roda sobre o trecho antes de ele entrar no pedido: material que entrega o
+        gabarito leva o modelo a repeti-lo (DO-11). Falha do serviço de embeddings não vira
+        cache, para a próxima dica tentar de novo.
+        """
+        if self.rag is None:
+            return None
+        chave = (item.id, nivel)
+        if chave in self._trechos:
+            return self._trechos[chave]
+        try:
+            [vetor] = self.cliente.embutir([f"{item.enunciado} {item.dicas[nivel]}"])
+        except FalhaDeGeracao as erro:
+            _log.warning("embeddings indisponíveis: %s", erro)
+            return None
+        escolhido = next((t for t in self.rag.consultar(vetor, 3) if not revela_resposta(t.texto, item)), None)
+        with self._trava:
+            self._trechos[chave] = escolhido
+        return escolhido

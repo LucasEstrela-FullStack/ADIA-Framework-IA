@@ -345,7 +345,6 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
     """Implementados: `doutor`, `itens`, `guarda`, `benchmark`, `excluir-dados` e `participantes`."""
     assert set(cli.PENDENTES) == {
         "migrar",
-        "indexar",
         "replay",
     }
     for pendente in cli.PENDENTES.values():
@@ -358,7 +357,6 @@ def test_todo_comando_nao_implementado_tem_fase_e_tarefa_declaradas() -> None:
     "invocacao",
     [
         ["migrar"],
-        ["indexar"],
         ["replay"],
     ],
 )

@@ -18,6 +18,9 @@ MARCAS_DA_RAIZ: Final = (ARQUIVO_PYTHON, "pyproject.toml")
 #: Diretório do banco de itens, relativo à raiz do projeto (design §2.3, D12).
 DIRETORIO_DE_ITENS: Final = Path("data") / "itens"
 DIRETORIO_STEAM: Final = Path("data") / "steam"
+DIRETORIO_CORPUS: Final = Path("data") / "corpus"
+INDICE_RAG: Final = Path("data") / "indice_rag" / "indice.db"
+"""Derivado do corpus por ``adia indexar``; fora do git por ``data/indice_rag/``."""
 CHAVE_DO_PROFESSOR: Final = Path("data") / "privado" / "professor.chave"
 """Chave das rotas do professor, gerada por ``adia professor chave``; fora do git por ``data/privado/``."""
 

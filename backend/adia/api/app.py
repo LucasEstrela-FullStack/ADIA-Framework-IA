@@ -15,6 +15,7 @@ estudante usa a mesma máquina, e o laço local sozinho não separa os dois pap�
 
 from __future__ import annotations
 
+import logging
 import secrets
 import subprocess
 from functools import cache
@@ -28,13 +29,23 @@ from pydantic import BaseModel, Field
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from adia.caminhos import CHAVE_DO_PROFESSOR, DIRETORIO_DE_ITENS, DIRETORIO_STEAM, encontrar_raiz
+from adia.caminhos import (
+    CHAVE_DO_PROFESSOR,
+    DIRETORIO_CORPUS,
+    DIRETORIO_DE_ITENS,
+    DIRETORIO_STEAM,
+    INDICE_RAG,
+    encontrar_raiz,
+)
 from adia.ia.cliente_ollama import ClienteOllama
+from adia.ia.rag.indice import abrir, arquivos_do_corpus
 from adia.ia.subagentes.papeis import LIMITE_DA_EXPLICACAO
 from adia.nucleo.sessao.gestor import OperacaoRecusada, Sessao
 from adia.orquestracao.servico import Servico, SessaoInconsistente, SessaoInexistente, SubmissaoInexistente
 from adia.persistencia.repositorio import BANCO_DE_DADOS, ParticipanteDesconhecido, Repositorio, SubmissaoGravada
 from adia.tipos import Etapa, Nivel
+
+_log = logging.getLogger(__name__)
 
 ENDERECOS_LOCAIS = frozenset({"127.0.0.1", "::1"})
 HOSTS_PERMITIDOS = ["127.0.0.1", "localhost", "[::1]"]
@@ -182,12 +193,18 @@ _ERROS_DE_DOMINIO = (OperacaoRecusada, ParticipanteDesconhecido, SessaoInconsist
 
 
 def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
+    corpus = arquivos_do_corpus(raiz / DIRETORIO_CORPUS)
+    rag = abrir(raiz / INDICE_RAG, corpus)
+    if corpus and rag is None:
+        # Sem índice as dicas seguem só com o material do item: avisa, mas não impede a coleta.
+        _log.warning("índice do RAG ausente ou de outro corpus: rode `uv run adia indexar`")
     servico = Servico(
         raiz / DIRETORIO_DE_ITENS,
         cliente or ClienteOllama(),
         Repositorio(raiz / BANCO_DE_DADOS),
         commit=_commit(raiz),
         diretorio_steam=raiz / DIRETORIO_STEAM,
+        rag=rag,
     )
 
     def professor(x_chave_professor: Annotated[str | None, Header()] = None) -> None:

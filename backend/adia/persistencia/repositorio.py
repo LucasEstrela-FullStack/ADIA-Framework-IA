@@ -376,12 +376,12 @@ class Repositorio:
         sessao: Sessao,
         nivel: Nivel,
         explicacao: str,
-        dica: tuple[str, str, str | None],
+        dica: tuple[str, str, str | None, str | None],
     ) -> None:
-        """Grava a dica entregue: ``dica`` é (texto, origem, motivo)."""
+        """Grava a dica entregue: ``dica`` é (texto, origem, motivo, trecho do RAG)."""
         conexao.execute(
             "INSERT INTO evento (sessao_id, tipo, etapa, ciclo, item_id, teto, nivel, explicacao, "
-            "texto_dica, origem, motivo, criado_em) VALUES (?, 'dica', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "texto_dica, origem, motivo, trecho_rag, criado_em) VALUES (?, 'dica', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (sessao_id, *_contexto(sessao), int(nivel), explicacao, *dica, _carimbo(_agora())),
         )
 

@@ -63,6 +63,7 @@ Uma linha por dica ou resposta, na ordem do registro.
 | `origem` | `ia`, `pre-escrita` | de onde veio a dica entregue |
 | `motivo` | texto | por que a dica pré-escrita substituiu a gerada |
 | `texto_dica` | texto | dica entregue ao estudante |
+| `trecho_rag` | texto | `versão do índice#id do trecho` que entrou no pedido de uma dica `ia` de L2 ou L3; vazio sem RAG (DO-47) |
 | `resposta` | texto | resposta como o estudante escreveu |
 | `acerto` | `1`, `0` | vazio quando o item não tem correção automática |
 | `confianca` | 0 a 10 | confiança declarada |
