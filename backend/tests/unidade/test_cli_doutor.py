@@ -330,6 +330,7 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
         "exportar",
         "excluir-dados",
         "benchmark",
+        "amostra-de-dicas",
         "participantes",
         "professor",
         "painel",

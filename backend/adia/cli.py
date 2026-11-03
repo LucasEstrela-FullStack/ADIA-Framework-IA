@@ -832,6 +832,7 @@ COMANDOS: Final = (
     "exportar",
     "excluir-dados",
     "benchmark",
+    "amostra-de-dicas",
     "participantes",
     "professor",
     "painel",
@@ -939,6 +940,39 @@ def benchmark(modelos: Sequence[str], diretorio: str | None = None) -> int:
     destino.parent.mkdir(parents=True, exist_ok=True)
     destino.write_text(relatorio(resultados, data), encoding="utf-8", newline="\n")
     _escrever([f"Relatório gravado em {destino}."])
+    return CODIGO_OK
+
+
+def amostra_de_dicas(destino: str | None, por_nivel: int) -> int:
+    """Gera dicas pelo caminho real e grava a planilha de revisão humana (DO-51)."""
+    import tempfile
+
+    from adia.ia.rag.indice import abrir, arquivos_do_corpus
+    from adia.orquestracao.amostra import Gravador, amostrar, gravar
+    from adia.orquestracao.benchmark import hoje
+    from adia.orquestracao.servico import Servico
+    from adia.persistencia.repositorio import Repositorio
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return CODIGO_BANCO_INVALIDO
+    gravador = Gravador()
+    if not gravador.disponivel():
+        _escrever(["O Ollama não respondeu: abra-o e rode de novo."])
+        return CODIGO_AMBIENTE_INVALIDO
+    rag = abrir(raiz / INDICE_RAG, arquivos_do_corpus(raiz / DIRETORIO_CORPUS))
+    # Banco descartável: a amostra não cria sessão, mas o serviço exige um repositório.
+    with tempfile.TemporaryDirectory() as tmp:
+        servico = Servico(raiz / DIRETORIO_DE_ITENS, gravador, Repositorio(Path(tmp) / "amostra.db"), rag=rag)
+        linhas = amostrar(servico, gravador, por_nivel)
+    alvo = Path(destino) if destino else raiz / "docs" / "relatorios" / f"revisao-dicas-{hoje()}.csv"
+    gravar(linhas, alvo)
+    descartadas = sum(1 for linha in linhas if linha["filtro"] != "passou")
+    saida = [f"{len(linhas)} dica(s) gravada(s) em {alvo}; {descartadas} descartada(s) pela guarda ou pelo filtro."]
+    if rag is None:
+        saida.append("RAG ausente: L2 e L3 saíram sem trecho do material (rode `adia indexar`).")
+    _escrever(saida)
     return CODIGO_OK
 
 
@@ -1251,6 +1285,14 @@ def construir_analisador() -> argparse.ArgumentParser:
         help="modelos separados por vírgula (padrão: os candidatos de D14; os ausentes saem como indisponíveis)",
     )
 
+    revisao = comandos.add_parser(
+        "amostra-de-dicas", help="gera dicas pelo caminho real e grava a planilha de revisão humana (DO-51)"
+    )
+    revisao.add_argument(
+        "--destino", metavar="CAMINHO", default=None, help="padrão: docs/relatorios/revisao-dicas-<data>.csv"
+    )
+    revisao.add_argument("--por-nivel", type=int, default=2, help="gerações por nível em cada item (padrão: 2)")
+
     comandos.add_parser("painel", help="gera o painel do pesquisador em exportacoes/, fora da API")
     copia = comandos.add_parser("backup", help="copia o banco de dados para data/backups/ ou outro destino")
     copia.add_argument("--destino", metavar="CAMINHO", default=None, help="pasta de destino, de preferência cifrada")
@@ -1321,6 +1363,9 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
 
         escolhidos = espaco.modelos.split(",") if isinstance(espaco.modelos, str) else CANDIDATOS_PADRAO
         return benchmark([m.strip() for m in escolhidos if m.strip()])
+    if chave == "amostra-de-dicas":
+        destino = getattr(espaco, "destino", None)
+        return amostra_de_dicas(destino if isinstance(destino, str) else None, int(espaco.por_nivel))
     if chave == "excluir-dados":
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
     if chave == "participantes criar":

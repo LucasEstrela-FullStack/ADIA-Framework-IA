@@ -26,4 +26,5 @@ Compare com `dica_de_referencia`, que é a pré-escrita revisada do mesmo nível
 ## Depois da marcação
 
 As marcações `n` com motivo comum viram ajuste no papel (`backend/adia/ia/subagentes/papeis.py`)
-ou no filtro (`backend/adia/guarda/qualidade.py`), e uma nova amostra mede o efeito.
+ou no filtro (`backend/adia/guarda/qualidade.py`), e uma nova amostra mede o efeito:
+`uv run adia amostra-de-dicas` grava `revisao-dicas-<data>.csv` nesta pasta, já sem as repetidas.

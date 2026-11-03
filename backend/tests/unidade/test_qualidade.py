@@ -7,8 +7,12 @@ from pathlib import Path
 import pytest
 
 from adia.guarda.qualidade import motivo_de_pobreza
+from adia.ia.cliente_ollama import ClienteOllama, RespostaDoModelo
 from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carregar
 from adia.nucleo.itens.modelo import Item
+from adia.orquestracao.amostra import Gravador, amostrar, gravar
+from adia.orquestracao.servico import Servico
+from adia.persistencia.repositorio import Repositorio
 from adia.tipos import Nivel
 
 
@@ -47,3 +51,28 @@ def test_toda_dica_pre_escrita_passa_no_filtro(itens: tuple[Item, ...]) -> None:
 )
 def test_motivos(itens: tuple[Item, ...], nivel: Nivel, texto: str, motivo: str | None) -> None:
     assert motivo_de_pobreza(texto, _item(itens, "2x + 3 = 11"), nivel) == motivo
+
+
+class _Modelo(ClienteOllama):
+    def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
+        texto = "O que você já sabe que ajuda neste problema?" if "metacognitivo" in sistema else "Isolar x."
+        return RespostaDoModelo(texto, 5, 900, self.modelo)
+
+
+class _Duble(Gravador, _Modelo):
+    """Grava o texto cru do modelo dublê, como o ``Gravador`` faz com o Ollama."""
+
+
+def test_amostra_guarda_o_texto_cru_e_tira_as_repetidas(tmp_path: Path) -> None:
+    gravador = _Duble()
+    servico = Servico(Path("data") / "itens", gravador, Repositorio(tmp_path / "adia.db"))
+    linhas = amostrar(servico, gravador, por_nivel=2)
+    praticados = sum(1 for i in servico.carga.itens if i.e_praticado)
+    assert len(linhas) == 3 * praticados
+    for linha in linhas:
+        esperado = ("O que você já sabe que ajuda neste problema?", "passou")
+        if linha["nivel"] != "L1":
+            esperado = ("Isolar x.", "dica gerada fora do padrão do nível: curta")
+        assert (linha["gerada_pelo_modelo"], linha["filtro"]) == esperado
+    gravar(linhas, tmp_path / "amostra.csv")
+    assert (tmp_path / "amostra.csv").read_text(encoding="utf-8-sig").startswith("n;item;nivel;")
