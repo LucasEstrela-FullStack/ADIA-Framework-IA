@@ -9,7 +9,27 @@ export type Estado = {
   restantes: number;
   dicas_usadas: number[];
   item: { id: string; enunciado: string; tamanho_max: number } | null;
+  steam: Projeto | null;
   retencao: { concluida: boolean; disponivel: boolean; abre_em: string | null } | null;
+};
+
+export type Projeto = {
+  titulo: string;
+  enunciado: string;
+  partes: { parte: string; pergunta: string; unidade: string | null; tamanho_max: number }[];
+  justificativa: { pergunta: string; tamanho_max: number };
+};
+
+export type ResumoDaSubmissao = { id: number; cenario: string; criado_em: string; avaliadores: string[] };
+
+export type Submissao = ResumoDaSubmissao & {
+  pergunta: string | null;
+  justificativa: string;
+  rubrica: {
+    titulo: string;
+    descricao: string;
+    criterios: { criterio: string; descricao: string; niveis: { nivel: string; pontos: number; descricao: string }[] }[];
+  };
 };
 
 export type Dica = { nivel: number; texto: string; origem: "ia" | "pre-escrita"; motivo: string | null };
@@ -35,12 +55,15 @@ export function mensagemDoErro(corpo: unknown): string {
   return "O sistema recusou o pedido. Tente de novo.";
 }
 
-async function pedir<T>(caminho: string, corpo?: unknown): Promise<T> {
+async function pedir<T>(caminho: string, corpo?: unknown, chave?: string): Promise<T> {
   let resposta: Response;
+  const cabecalhos: Record<string, string> = {};
+  if (corpo !== undefined) cabecalhos["Content-Type"] = "application/json";
+  if (chave !== undefined) cabecalhos["X-Chave-Professor"] = chave;
   try {
     resposta = await fetch(`/api${caminho}`, {
       method: corpo === undefined ? "GET" : "POST",
-      headers: corpo === undefined ? undefined : { "Content-Type": "application/json" },
+      headers: Object.keys(cabecalhos).length ? cabecalhos : undefined,
       body: corpo === undefined ? undefined : JSON.stringify(corpo),
     });
   } catch {
@@ -71,4 +94,17 @@ export const api = {
   iniciarRetencao: (id: string) => pedir<Estado>(`/sessoes/${encodeURIComponent(id)}/retencao`, {}),
   dica: (id: string, nivel: number, explicacao: string) =>
     pedir<Dica>(`/sessoes/${encodeURIComponent(id)}/dicas`, { nivel, explicacao }),
+  steam: (id: string, partes: Record<string, string>, justificativa: string) =>
+    pedir<Estado>(`/sessoes/${encodeURIComponent(id)}/steam`, { partes, justificativa }),
+};
+
+export const professor = {
+  submissoes: (chave: string) => pedir<ResumoDaSubmissao[]>("/professor/submissoes", undefined, chave),
+  submissao: (chave: string, id: number) => pedir<Submissao>(`/professor/submissoes/${id}`, undefined, chave),
+  avaliar: (chave: string, id: number, avaliador: string, niveis: Record<string, string>) =>
+    pedir<{ pontos: number; pontos_maximos: number }>(
+      `/professor/submissoes/${id}/avaliacoes`,
+      { avaliador, niveis },
+      chave,
+    ),
 };

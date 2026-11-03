@@ -2,9 +2,9 @@
 
 Este arquivo lê `data/steam/` **de verdade**, como `test_banco_inicial_de_itens.py` lê
 `data/itens/`, e pela mesma razão: o que está sob verificação aqui é **conteúdo**, e conteúdo
-só é verificável contra o conteúdo real. Ele também é, por enquanto, a **única** verificação
-que o conteúdo STEAM tem — não existe `adia steam validar`, porque o carregador de cenários é
-de tarefa posterior. Enquanto ele não existe, as afirmações abaixo são o portão.
+só é verificável contra o conteúdo real. O carregador (`adia.nucleo.steam.cenarios`) recusa
+o que foge da gramática, mas a varredura de vazamento da afirmação 4 só existe aqui, e não
+existe `adia steam validar`: as afirmações abaixo continuam sendo o portão do conteúdo.
 
 Quatro coisas se afirmam, e cada uma corresponde a uma forma de o conteúdo nascer inútil:
 

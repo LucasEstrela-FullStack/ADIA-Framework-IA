@@ -1284,6 +1284,44 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Origem:** revisão de 2026-10-30.
 - **Revalidação:** nenhuma.
 
+## DO-46 — Projeto STEAM no percurso, sem IA, corrigido por rubrica com chave do professor
+
+- **Data:** 2026-11-03
+- **Decisão:**
+  - **Percurso.** O projeto abre depois do pós-teste, para o cenário de `data/steam/` cuja
+    `habilidade_alvo` é igual à dos itens praticados (R13.1); havendo mais de um, vale o
+    primeiro por `id`. Sem cenário da habilidade, a sessão encerra no pós-teste como antes.
+    A sessão só conclui, e a janela da retenção (DO-08) só começa a contar, quando o projeto
+    é enviado;
+  - **sem IA nesta fatia.** O estudante não pede dica no projeto. O teto vigente é gravado
+    na submissão mesmo assim, como a gramática pede;
+  - **correção das partes.** A regra do item numérico: forma declarada primeiro, depois
+    tolerância, com a unidade declarada removida do fim **ou do começo** (`R$ 101,40`). O
+    motor de itens continua só com sufixo; o prefixo vale só aqui porque o cenário declara
+    `R$`;
+  - **registro.** Duas tabelas append-only, `submissao_steam` e `avaliacao_rubrica`, fora
+    do registro de eventos, com a exceção de exclusão de DO-14. O replay aplica o resultado
+    gravado de cada parte e não recorrige: editar o cenário depois não muda veredito
+    gravado. Submissão de cenário diferente do que o replay abre torna a sessão
+    inconsistente;
+  - **rubrica.** O professor avalia pela tela `/#professor`, com a chave gerada por
+    `adia professor chave` (em `data/privado/`, fora do git) e um código `PROF-NN`. Ele vê a
+    pergunta, a justificativa e a rubrica, e não vê participante, condição nem as partes
+    numéricas. A avaliação exige todos os critérios de uma vez (R13.4); um avaliador avalia
+    cada submissão uma vez por versão de rubrica, e mais de um avaliador é permitido;
+  - **métricas.** `steam_partes` (proporção de partes certas) e `steam_rubrica` (pontos
+    sobre o máximo, média das avaliações concluídas) saem separadas, sem nota composta. A
+    rubrica fica indisponível com `aguardando_rubrica` até a primeira avaliação.
+- **Justificativa:** gerar dica para um cenário exige prompts e guarda próprios, e o projeto
+  existe para medir transferência; o teto gravado preserva o que R13 pede sem decidir o
+  resto. A chave é exceção a D11 porque o estudante usa a mesma máquina, e uma rota de
+  correção aberta mostraria as justificativas dos colegas. A correção cega reduz o viés do
+  avaliador. O peso entre partes e rubrica na pontuação de R13.7 é decisão de pesquisa, e
+  uma nota composta agora fixaria esse peso sem registro.
+- **Origem:** R13.1 a R13.4, R13.7; D11, DO-08, DO-14; `docs/gramatica-steam.md`.
+- **Revalidação:** dicas no projeto, peso de cada medida na pontuação STEAM e avaliação por
+  critério em mais de uma visita, quando a pesquisa decidir.
+
 ---
 
 ## Pendências
@@ -1303,7 +1341,6 @@ A lista existe para que nenhuma se perca entre fases.
 | `responsavel_id` e `avaliador_id` no formato `PROF-NN`, mantidos fora do banco operacional | R25.3; design §4 |
 | Pesos padrão dos geradores, a metade que resta: banco de itens entre 12 e 60 (tarefa 3.14) e composição `3 / 10 / 20` do corpus sintético (Fase 4). O peso `indisponibilidade = 0,15` está em [DO-27](#do-27--geradores-do-hypothesis-validade-por-construção) | design §6.3 |
 | Destino do registro da falha de escrita do próprio log de eventos, fora do banco | design §7 |
-| Motivo de indisponibilidade `aguardando_rubrica` do projeto STEAM | design §7 |
 | Janela de inatividade que dispara `sessao_interrompida`, com 45 minutos como ponto de partida | design §7 |
 | Limite global de corpo de requisição, com 64 KB como ponto de partida | design §7 |
 | Catálogo único de mensagens de erro no frontend, varrido contra o `Banco_de_Itens` | R7; design §7 |

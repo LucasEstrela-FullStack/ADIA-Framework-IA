@@ -46,6 +46,20 @@ ponto em que parou. Ao fim:
 .\scripts\piloto.ps1 parar
 ```
 
+## Correção do projeto STEAM
+
+Depois do pós-teste o estudante faz o projeto STEAM, e a contagem da retenção só começa
+quando ele envia o projeto. A justificativa espera a rubrica do professor:
+
+```powershell
+uv run adia professor chave      # mostra a chave; gerar outra revoga a anterior
+```
+
+O professor abre `http://127.0.0.1:8000/#professor`, entra com a chave e com o próprio
+código `PROF-NN` e avalia cada submissão por todos os critérios. Ele não vê participante nem
+condição. Não deixe a chave à vista dos estudantes: eles usam a mesma máquina. Enquanto não
+houver avaliação, a métrica `steam_rubrica` sai como `aguardando_rubrica`.
+
 ## Retenção, 7 a 9 dias depois
 
 Suba de novo e peça a cada estudante para entrar com o mesmo código. Antes de 168 h a tela

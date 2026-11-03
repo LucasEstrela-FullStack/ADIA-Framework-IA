@@ -6,12 +6,14 @@ estudante e a **rubrica versionada** com que o professor a avalia. É a referên
 R13.4.
 
 > **Estado deste documento.** O formato é decidido aqui, pela tarefa 3.14, junto com o
-> conteúdo que o cumpre. O **carregador** de cenários STEAM — com a recusa que nomeia caminho,
-> linha e campo, como faz o de itens — é de tarefa posterior, e não existe `adia steam
-> validar`. Enquanto ele não existe, quem verifica estas seções é
+> conteúdo que o cumpre. O carregador é
+> [`backend/adia/nucleo/steam/cenarios.py`](../backend/adia/nucleo/steam/cenarios.py): ele
+> aplica as seções 1 a 5 e recusa o conteúdo inteiro nomeando arquivo e campo, ainda sem a
+> linha. A API não sobe com conteúdo inválido. A seção 6, sobre vazamento, continua
+> verificada só por
 > [`backend/tests/conjuntos/test_cenario_steam_inicial.py`](../backend/tests/conjuntos/test_cenario_steam_inicial.py),
-> que interpreta os arquivos reais no portão. As decisões de formato tomadas aqui ainda estão
-> a transcrever para [`decisoes.md`](decisoes.md).
+> e não existe `adia steam validar`. O uso do conteúdo na sessão e na correção está em
+> [DO-46](decisoes.md).
 >
 > Este documento existe pela mesma razão que [`gramatica-itens.md`](gramatica-itens.md): o
 > conteúdo é revisado em texto por quem não escreveu o código, e um formato que vive só na

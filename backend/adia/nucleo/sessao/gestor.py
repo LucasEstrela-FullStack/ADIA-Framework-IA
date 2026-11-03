@@ -2,15 +2,16 @@
 
 Percurso: linha de base, depois ``CICLOS`` repetições de prática assistida seguida de
 desafio independente, com o gatilho de *fading* ao fim de cada desafio (R12.1). O desafio do
-terceiro ciclo é o pós-teste. Dias depois, o teste de retenção reabre a sessão encerrada; a
-janela de tempo é de quem chama (DO-08), porque aqui não há relógio. Puro: sem relógio, sem
-rede, sem IA. Quem chama corrige a resposta e informa o acerto.
-
-shortcut: o projeto STEAM ainda fica fora do percurso.
+terceiro ciclo é o pós-teste. Depois dele vem o projeto STEAM da habilidade praticada (R13.1),
+quando o conteúdo declara um; sem cenário, a sessão encerra no pós-teste. Dias depois, o teste
+de retenção reabre a sessão encerrada; a janela de tempo é de quem chama (DO-08), porque aqui
+não há relógio. Puro: sem relógio, sem rede, sem IA. Quem chama corrige a resposta e informa o
+acerto.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from adia.nucleo.itens.banco import BancoDeItens, ConjuntoDoDesafio
@@ -23,6 +24,7 @@ from adia.nucleo.regulacao.regra import (
     aplicar,
     decidir,
 )
+from adia.nucleo.steam.cenarios import Cenario
 from adia.tipos import Condicao, Etapa, Medida, Nivel
 
 CICLOS = 3
@@ -89,6 +91,12 @@ class Sessao:
     onloading: bool = False
     justificativa_exigida: bool = False
     retencao_concluida: bool = False
+    cenarios: tuple[Cenario, ...] = ()
+    """Cenários STEAM do conteúdo; o da habilidade praticada abre depois do pós-teste."""
+    cenario: Cenario | None = None
+    steam: tuple[bool, ...] | None = None
+    """Acerto de cada parte numérica do projeto STEAM, na ordem do cenário, depois de submetido."""
+    _habilidade: str | None = None
     _dicas_do_item: list[Nivel] = field(default_factory=list)
     _conjunto: ConjuntoDoDesafio | None = None
 
@@ -155,6 +163,18 @@ class Sessao:
         self.etapa = Etapa.TESTE_RETENCAO
         self.fila = fila
 
+    def submeter_steam(self, acertos: Sequence[bool]) -> None:
+        """Registra a correção das partes numéricas e encerra a sessão (R13.2).
+
+        A justificativa não entra aqui: ela vai à rubrica do professor, fora da sessão (R13.3).
+        """
+        if self.etapa != Etapa.PROJETO_STEAM or self.cenario is None:
+            raise OperacaoRecusada("O projeto não está aberto para este código.")
+        if len(acertos) != len(self.cenario.partes):
+            raise OperacaoRecusada("Responda todas as partes do projeto antes de enviar.")
+        self.steam = tuple(acertos)
+        self.etapa = FIM
+
     def _na_etapa(self, etapa: Etapa) -> list[Resposta]:
         return [r for r in self.respostas if r.etapa == etapa]
 
@@ -192,8 +212,9 @@ class Sessao:
             resumo = self._fechar_ciclo()
             if self.ciclo == CICLOS:
                 # Não há ciclo seguinte para onloading nem justificativa valerem.
-                self.etapa = FIM
                 self.onloading = self.justificativa_exigida = False
+                self.cenario = next((c for c in self.cenarios if c.habilidade_alvo == self._habilidade), None)
+                self.etapa = FIM if self.cenario is None else Etapa.PROJETO_STEAM
                 return resumo
             self._iniciar_pratica()
             return resumo
@@ -219,6 +240,7 @@ class Sessao:
         )
         if not isinstance(conjunto, ConjuntoDoDesafio):
             raise OperacaoRecusada(conjunto.mensagem)
+        self._habilidade = habilidade.habilidade_alvo
         self._conjunto = conjunto
         self.etapa = Etapa.DESAFIO_INDEPENDENTE
         self.fila = [par.equivalente for par in conjunto.pares] + list(conjunto.transferencia)

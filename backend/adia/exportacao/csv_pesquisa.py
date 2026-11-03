@@ -16,7 +16,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Final
 
-from adia.nucleo.sessao.gestor import ResumoDoCiclo, ResumoSemIA
+from adia.nucleo.sessao.gestor import CICLOS, ResumoDoCiclo, ResumoSemIA
 from adia.tipos import Indisponivel, Medida
 
 CASAS_MINIMAS: Final = 6
@@ -175,8 +175,13 @@ def metricas_csv(
     sem_ia: Sequence[ResumoSemIA],
     prov: ProvenienciaDaExportacao,
     desvio_horas: Decimal | None = None,
+    steam: tuple[Medida, Medida] | None = None,
 ) -> str:
     """Formato longo: uma linha por métrica de cada ciclo, com a decisão do ciclo ao lado.
+
+    O projeto STEAM submetido sai com o ciclo do pós-teste e a etapa ``projeto_steam``:
+    ``steam_partes`` (proporção de partes numéricas certas) e ``steam_rubrica`` (pontos da
+    rubrica sobre o máximo), esta indisponível com ``aguardando_rubrica`` até ser avaliada.
 
     A linha de base sai com ``ciclo = 0`` e a retenção com o ciclo do pós-teste e a etapa
     ``teste_retencao``, sem decisão. ``horas_alem_da_janela`` é a marca de DO-08: 0 dentro
@@ -208,6 +213,9 @@ def metricas_csv(
         if resumo_sem_ia.retencao is not None:
             sem_decisao(resumo_sem_ia.ciclo, etapa, "retencao", resumo_sem_ia.retencao)
             sem_decisao(resumo_sem_ia.ciclo, etapa, "horas_alem_da_janela", desvio_horas or Decimal(0))
+    if steam is not None:
+        sem_decisao(CICLOS, "projeto_steam", "steam_partes", steam[0])
+        sem_decisao(CICLOS, "projeto_steam", "steam_rubrica", steam[1])
     for resumo in ciclos:
         decisao = resumo.decisao
         metricas: tuple[tuple[str, str, Medida], ...] = (

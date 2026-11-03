@@ -17,6 +17,9 @@ MARCAS_DA_RAIZ: Final = (ARQUIVO_PYTHON, "pyproject.toml")
 
 #: Diretório do banco de itens, relativo à raiz do projeto (design §2.3, D12).
 DIRETORIO_DE_ITENS: Final = Path("data") / "itens"
+DIRETORIO_STEAM: Final = Path("data") / "steam"
+CHAVE_DO_PROFESSOR: Final = Path("data") / "privado" / "professor.chave"
+"""Chave das rotas do professor, gerada por ``adia professor chave``; fora do git por ``data/privado/``."""
 
 #: Conjunto declarado de verificação da guarda (docs/conjunto-verificacao-guarda.md).
 CONJUNTO_DA_GUARDA: Final = Path("data") / "guarda" / "conjunto_verificacao.jsonl"

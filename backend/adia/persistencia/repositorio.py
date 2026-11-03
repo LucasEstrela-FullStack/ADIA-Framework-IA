@@ -1,4 +1,4 @@
-"""Repositório SQLite: participantes, sessões, eventos, decisões por ciclo e exclusões.
+"""Repositório SQLite: participantes, sessões, eventos, decisões, projeto STEAM e exclusões.
 
 A sessão não é gravada como fotografia: ela é reconstruída reaplicando os eventos em
 ordem (``Servico.obter``), e as decisões gravadas servem de conferência do replay. Uma
@@ -8,6 +8,7 @@ conexão por operação, porque a API atende rotas síncronas em várias threads
 
 from __future__ import annotations
 
+import json
 import random
 import sqlite3
 from collections.abc import Iterator
@@ -71,6 +72,34 @@ class Evento:
     justificativa: str | None
     acerto: bool | None
     confianca: int | None
+
+
+@dataclass(frozen=True)
+class SubmissaoGravada:
+    """Projeto STEAM submetido, como o professor o vê: sem participante nem condição."""
+
+    id: int
+    cenario_id: str
+    justificativa: str
+    rubrica_id: str
+    rubrica_versao: int
+    criado_em: str
+    avaliadores: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AvaliacaoNova:
+    submissao_id: int
+    avaliador_id: str
+    rubrica_versao: int
+    pontuacoes: tuple[tuple[str, str, int], ...]
+    """``(criterio, nivel, pontos)`` de cada critério pontuado."""
+    criterios_total: int
+    pontos_maximos: int
+
+
+class AvaliacaoRepetida(Exception):
+    """O avaliador já avaliou esta submissão com esta versão da rubrica."""
 
 
 @dataclass(frozen=True)
@@ -442,6 +471,97 @@ class Repositorio:
             (_carimbo(agora + PRAZO_DE_RETENCAO), sessao_id),
         )
 
+    # ------------------------------------------------------------------ projeto STEAM
+
+    @staticmethod
+    def registrar_steam(
+        conexao: sqlite3.Connection,
+        sessao_id: str,
+        sessao: Sessao,
+        partes: list[dict[str, str]],
+        justificativa: str,
+    ) -> None:
+        """Grava a submissão antes de a sessão encerrar: ``partes`` já corrigidas, na ordem do cenário."""
+        cenario = sessao.cenario
+        if cenario is None or sessao.etapa != Etapa.PROJETO_STEAM:
+            raise ValueError("submissão STEAM fora da etapa projeto_steam")
+        conexao.execute(
+            "INSERT INTO submissao_steam (sessao_id, cenario_id, teto, partes_numericas, justificativa, "
+            "rubrica_id, rubrica_versao, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                sessao_id,
+                cenario.id,
+                int(sessao.teto),
+                json.dumps(partes, ensure_ascii=False),
+                justificativa,
+                cenario.rubrica.rubrica_id,
+                cenario.rubrica.rubrica_versao,
+                _carimbo(_agora()),
+            ),
+        )
+
+    def acertos_steam(self, sessao_id: str) -> tuple[str, tuple[bool, ...]] | None:
+        """``(cenario_id, acerto de cada parte)`` da submissão da sessão, ou ``None``."""
+        with self.transacao() as conexao:
+            linha = conexao.execute(
+                "SELECT cenario_id, partes_numericas FROM submissao_steam WHERE sessao_id = ?", (sessao_id,)
+            ).fetchone()
+        if linha is None:
+            return None
+        return str(linha[0]), tuple(parte["resultado"] == "acerto" for parte in json.loads(linha[1]))
+
+    def submissoes_steam(self, submissao_id: int | None = None) -> list[SubmissaoGravada]:
+        """Submissões em ordem de chegada, com quem já avaliou cada uma."""
+        filtro, parametros = ("WHERE m.id = ?", (submissao_id,)) if submissao_id is not None else ("", ())
+        with self.transacao() as conexao:
+            linhas = conexao.execute(
+                "SELECT m.id, m.cenario_id, m.justificativa, m.rubrica_id, m.rubrica_versao, m.criado_em, "
+                "(SELECT group_concat(a.avaliador_id, ',') FROM avaliacao_rubrica a WHERE a.submissao_id = m.id) "
+                f"FROM submissao_steam m {filtro} ORDER BY m.id",
+                parametros,
+            ).fetchall()
+        return [
+            SubmissaoGravada(r[0], r[1], r[2], r[3], r[4], r[5], tuple(sorted(r[6].split(","))) if r[6] else ())
+            for r in linhas
+        ]
+
+    def registrar_avaliacao(self, avaliacao: AvaliacaoNova) -> None:
+        pontuacoes = [{"criterio": c, "nivel": n, "pontos": p} for c, n, p in avaliacao.pontuacoes]
+        try:
+            with self.transacao() as conexao:
+                conexao.execute(
+                    "INSERT INTO avaliacao_rubrica (submissao_id, avaliador_id, rubrica_versao, pontuacoes, "
+                    "criterios_pontuados, criterios_total, pontos, pontos_maximos, concluida, criado_em) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        avaliacao.submissao_id,
+                        avaliacao.avaliador_id,
+                        avaliacao.rubrica_versao,
+                        json.dumps(pontuacoes, ensure_ascii=False),
+                        len(pontuacoes),
+                        avaliacao.criterios_total,
+                        sum(p for _, _, p in avaliacao.pontuacoes),
+                        avaliacao.pontos_maximos,
+                        int(len(pontuacoes) == avaliacao.criterios_total),
+                        _carimbo(_agora()),
+                    ),
+                )
+        except sqlite3.IntegrityError as erro:
+            if "UNIQUE" in str(erro):
+                raise AvaliacaoRepetida(avaliacao.avaliador_id) from erro
+            raise
+
+    def notas_da_rubrica(self, sessao_id: str) -> list[tuple[int, int]]:
+        """``(pontos, pontos_maximos)`` de cada avaliação concluída da submissão da sessão."""
+        with self.transacao() as conexao:
+            linhas = conexao.execute(
+                "SELECT a.pontos, a.pontos_maximos FROM avaliacao_rubrica a "
+                "JOIN submissao_steam m ON m.id = a.submissao_id WHERE m.sessao_id = ? AND a.concluida = 1 "
+                "ORDER BY a.id",
+                (sessao_id,),
+            ).fetchall()
+        return [(int(p), int(m)) for p, m in linhas]
+
     # ------------------------------------------------------------------ exclusão
 
     def excluir_participante(self, participante_id: str, motivo: MotivoDeExclusao) -> int:
@@ -453,6 +573,9 @@ class Repositorio:
             sessoes = "SELECT id FROM sessao WHERE participante_id = ?"
             eventos = conexao.execute(f"DELETE FROM evento WHERE sessao_id IN ({sessoes})", (participante_id,)).rowcount
             conexao.execute(f"DELETE FROM decisao_ciclo WHERE sessao_id IN ({sessoes})", (participante_id,))
+            submissoes = f"SELECT id FROM submissao_steam WHERE sessao_id IN ({sessoes})"
+            conexao.execute(f"DELETE FROM avaliacao_rubrica WHERE submissao_id IN ({submissoes})", (participante_id,))
+            conexao.execute(f"DELETE FROM submissao_steam WHERE sessao_id IN ({sessoes})", (participante_id,))
             conexao.execute("DELETE FROM sessao WHERE participante_id = ?", (participante_id,))
             conexao.execute("DELETE FROM participante WHERE id = ?", (participante_id,))
             conexao.execute("DELETE FROM exclusao_em_curso WHERE participante_id = ?", (participante_id,))

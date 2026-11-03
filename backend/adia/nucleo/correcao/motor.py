@@ -39,7 +39,7 @@ território da ``Guarda_de_Vazamento`` (§3.11), que tem outro objetivo: lá o a
 sobre texto gerado, e errar para o lado inclusivo é falha fechada; aqui errar para o lado
 inclusivo é **inflar a TAI**. A única normalização aplicada à resposta é a remoção do espaço
 em volta, mais a remoção da ``unidade`` declarada quando ela aparece como sufixo — ver
-``_sem_unidade_declarada``.
+``sem_unidade_declarada``.
 
 **4. A justificativa nomeia o critério aplicado, nunca o gabarito.** R4.3 exige registrar a
 justificativa "em termos do gabarito aplicado", e o ``Julgamento`` volta para quem apresenta a
@@ -410,8 +410,11 @@ def _coincide_com_forma_declarada(item: Item, texto: str) -> bool:
     return texto in {forma.strip() for forma in formas_declaradas(item)}
 
 
-def _sem_unidade_declarada(texto: str, item: Item) -> str:
-    """Resposta sem a ``unidade`` do item ou um de seus sinônimos, quando vêm como sufixo.
+def sem_unidade_declarada(texto: str, unidade: str | None, sinonimos_unidade: tuple[str, ...]) -> str:
+    """Resposta sem a ``unidade`` declarada ou um de seus sinônimos, quando vêm como sufixo.
+
+    Recebe unidade e sinônimos, e não o ``Item``, porque a parte numérica do projeto STEAM
+    declara os mesmos dois campos e é corrigida pela mesma regra (R13.2).
 
     ``"12 km"``, ``"12km"`` e ``"12 quilômetros"`` são a resposta ``12`` para um item que
     declara ``unidade = "quilômetros"`` com ``sinonimos_unidade = ["km", "quilometros"]``.
@@ -433,9 +436,9 @@ def _sem_unidade_declarada(texto: str, item: Item) -> str:
       **original**, de modo que caixa cuja dobra muda o comprimento não desloque o corte — no
       pior caso o sufixo não casa, e o julgamento falha fechado.
     """
-    if item.unidade is None:
+    if unidade is None:
         return texto
-    declaradas = {item.unidade, *item.sinonimos_unidade}
+    declaradas = {unidade, *sinonimos_unidade}
     for forma in sorted(declaradas, key=lambda declarada: (-len(declarada), declarada)):
         corte = len(texto) - len(forma)
         if corte > 0 and texto[corte:].casefold() == forma.casefold():
@@ -513,7 +516,7 @@ def _julgar_numerico(item: Item, texto: str) -> Julgamento:
     gabarito = interpretar_decimal(item.gabarito)
     if gabarito is None:
         return _julgado(Resultado.ERRO, JUSTIFICATIVA_DE_GABARITO_NAO_NUMERICO)
-    valor = interpretar_decimal(_sem_unidade_declarada(texto, item))
+    valor = interpretar_decimal(sem_unidade_declarada(texto, item.unidade, item.sinonimos_unidade))
     if valor is None:
         return _julgado(Resultado.ERRO, JUSTIFICATIVA_DE_RESPOSTA_NAO_NUMERICA)
     dentro = dentro_da_tolerancia(valor, gabarito, item.tolerancia)

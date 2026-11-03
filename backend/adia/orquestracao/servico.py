@@ -16,23 +16,34 @@ import logging
 import secrets
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 
 from adia.guarda.veredito import revela_resposta
 from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao
 from adia.ia.subagentes.papeis import PAPEIS, pedido
-from adia.nucleo.correcao.motor import MOTIVO_VAZIA, Julgamento, Resultado, corrigir
+from adia.nucleo.correcao.motor import MOTIVO_AGUARDANDO_RUBRICA, MOTIVO_VAZIA, Julgamento, Resultado, corrigir
 from adia.nucleo.itens.banco import BancoDeItens
 from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carregar
 from adia.nucleo.itens.modelo import Item
+from adia.nucleo.metricas.calculo import taxa_de_acerto
 from adia.nucleo.regulacao.regra import ConjuntoDeLimiares
 from adia.nucleo.sessao.gestor import OperacaoRecusada, ResumoDoCiclo, Sessao
 from adia.nucleo.sessao.retencao import JanelaDaRetencao, janela
-from adia.persistencia.repositorio import DecisaoGravada, Proveniencia, Repositorio
-from adia.tipos import Etapa, Nivel
+from adia.nucleo.steam.cenarios import ErroDeSteam, Rubrica, arquivos_de_steam
+from adia.nucleo.steam.cenarios import carregar as carregar_steam
+from adia.persistencia.repositorio import (
+    AvaliacaoNova,
+    AvaliacaoRepetida,
+    DecisaoGravada,
+    Proveniencia,
+    Repositorio,
+    SubmissaoGravada,
+)
+from adia.tipos import Etapa, Indisponivel, Medida, Nivel
 
 _log = logging.getLogger(__name__)
 
@@ -48,6 +59,10 @@ class Dica:
 
 class SessaoInexistente(OperacaoRecusada):
     """Identificador de sessão que o banco não conhece."""
+
+
+class SubmissaoInexistente(OperacaoRecusada):
+    """Identificador de submissão STEAM que o banco não conhece."""
 
 
 class SessaoInconsistente(RuntimeError):
@@ -70,6 +85,7 @@ class Servico:
         repositorio: Repositorio,
         commit: str | None = None,
         semente: int = 20261030,
+        diretorio_steam: Path | None = None,
         agora: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         arquivos = arquivos_de_itens(diretorio_de_itens)
@@ -78,6 +94,17 @@ class Servico:
             # A API recusa servir com banco inválido (design §7), nomeando o erro.
             raise RuntimeError(f"Banco de itens inválido: {carga}")
         self.carga = carga
+        try:
+            self.steam = carregar_steam(arquivos_de_steam(diretorio_steam) if diretorio_steam else ())
+        except ErroDeSteam as erro:
+            raise RuntimeError(f"Conteúdo STEAM inválido: {erro}") from erro
+        habilidades = {item.habilidade_alvo for item in carga.itens}
+        for cenario in self.steam.cenarios:
+            if cenario.habilidade_alvo not in habilidades:
+                # R13.1: cenário de habilidade que nenhum item cobre nunca seria liberado.
+                raise RuntimeError(
+                    f"Cenário STEAM {cenario.id!r}: nenhum item cobre a habilidade {cenario.habilidade_alvo!r}."
+                )
         self._agora = agora
         self.cliente = cliente
         self.repositorio = repositorio
@@ -122,7 +149,7 @@ class Servico:
         limiares = self.repositorio.limiares()
         proveniencia = replace(self.proveniencia, limiares_versao=limiares.versao)
         registro = self.repositorio.criar_sessao(sessao_id, participante_id, secrets.randbits(31), proveniencia)
-        sessao = Sessao(self.banco, registro.condicao, limiares)
+        sessao = Sessao(self.banco, registro.condicao, limiares, cenarios=self.steam.cenarios)
         with self._trava:
             self._sessoes[sessao_id] = sessao
         return sessao_id, sessao
@@ -148,9 +175,26 @@ class Servico:
                 f"({gravada.hash_banco_itens[:12]}, atual {self.proveniencia.hash_banco_itens[:12]})."
             )
         sessao = Sessao(
-            self._banco(gravada.semente_banco), registro.condicao, self.repositorio.limiares(gravada.limiares_versao)
+            self._banco(gravada.semente_banco),
+            registro.condicao,
+            self.repositorio.limiares(gravada.limiares_versao),
+            cenarios=self.steam.cenarios,
         )
+        steam = self.repositorio.acertos_steam(sessao_id)
+
+        def aplicar_steam() -> None:
+            # A submissão fica fora do registro de eventos: entra assim que o replay chega à etapa.
+            if steam is None or sessao.etapa != Etapa.PROJETO_STEAM:
+                return
+            if sessao.cenario is None or sessao.cenario.id != steam[0]:
+                raise SessaoInconsistente(f"Sessão {sessao_id}: o projeto STEAM gravado é de outro cenário.")
+            try:
+                sessao.submeter_steam(steam[1])
+            except OperacaoRecusada as erro:
+                raise SessaoInconsistente(f"Sessão {sessao_id}: o replay recusou o projeto STEAM: {erro}") from erro
+
         for evento in eventos:
+            aplicar_steam()
             if evento.etapa == Etapa.TESTE_RETENCAO and sessao.encerrada:
                 sessao.iniciar_retencao()
             atual = sessao.item_atual
@@ -171,6 +215,9 @@ class Servico:
                 raise SessaoInconsistente(f"Sessão {sessao_id}: o replay recusou um evento gravado: {erro}") from erro
             if resumo is not None:
                 self._conferir(sessao_id, resumo, decisoes.get(resumo.ciclo))
+        aplicar_steam()
+        if steam is not None and sessao.steam is None:
+            raise SessaoInconsistente(f"Sessão {sessao_id}: há projeto STEAM gravado, mas o replay não chegou a ele.")
         if registro.retencao_iniciada_em is not None and sessao.encerrada and not sessao.retencao_concluida:
             sessao.iniciar_retencao()  # aberta e ainda sem resposta
         return sessao
@@ -248,6 +295,99 @@ class Servico:
                 self._esquecer(sessao_id)
                 raise
             return julgamento, resumo
+
+    def submeter_steam(self, sessao_id: str, respostas: Mapping[str, str], justificativa: str) -> Sessao:
+        """Corrige as partes numéricas, grava a submissão e encerra os ciclos (R13.2, R13.3)."""
+        with self._da_sessao(sessao_id):
+            sessao = self.obter(sessao_id)
+            cenario = sessao.cenario
+            if sessao.etapa != Etapa.PROJETO_STEAM or cenario is None:
+                raise OperacaoRecusada("O projeto não está aberto para este código.")
+            partes: list[dict[str, str]] = []
+            for parte in cenario.partes:
+                valor = respostas.get(parte.parte, "").strip()
+                if not valor:
+                    raise OperacaoRecusada("Responda todas as partes antes de enviar.")
+                if len(valor) > parte.tamanho_max_resposta:
+                    raise OperacaoRecusada(
+                        f"Uma resposta passou de {parte.tamanho_max_resposta} caracteres. Escreva só o resultado."
+                    )
+                resultado = "acerto" if parte.corrigir(valor) else "erro"
+                partes.append(
+                    {"parte": parte.parte, "valor": valor, "resultado": resultado, "tolerancia": str(parte.tolerancia)}
+                )
+            texto = justificativa.strip()
+            if not texto:
+                raise OperacaoRecusada("Escreva a justificativa antes de enviar.")
+            if len(texto) > cenario.tamanho_max_justificativa:
+                raise OperacaoRecusada(f"A justificativa passou de {cenario.tamanho_max_justificativa} caracteres.")
+            try:
+                with self.repositorio.transacao() as conexao:
+                    Repositorio.registrar_steam(conexao, sessao_id, sessao, partes, texto)
+                    sessao.submeter_steam([p["resultado"] == "acerto" for p in partes])
+                    Repositorio.concluir(conexao, sessao_id)
+            except BaseException:
+                self._esquecer(sessao_id)
+                raise
+            return sessao
+
+    def medidas_steam(self, sessao_id: str, sessao: Sessao) -> tuple[Medida, Medida] | None:
+        """``(partes, rubrica)`` do projeto submetido, cada uma entre 0 e 1; ``None`` antes da submissão.
+
+        As duas ficam separadas, sem nota composta: o peso de cada uma na pontuação de R13.7 é
+        decisão de pesquisa. A rubrica é a média das avaliações concluídas, uma por avaliador, e
+        fica indisponível com ``aguardando_rubrica`` até a primeira.
+        """
+        if sessao.steam is None:
+            return None
+        partes = taxa_de_acerto(list(sessao.steam), "projeto STEAM sem partes numéricas")
+        notas = self.repositorio.notas_da_rubrica(sessao_id)
+        if not notas:
+            return partes, Indisponivel(MOTIVO_AGUARDANDO_RUBRICA)
+        return partes, sum((Decimal(p) / Decimal(m) for p, m in notas), Decimal(0)) / len(notas)
+
+    def rubrica_de(self, submissao: SubmissaoGravada) -> Rubrica:
+        rubrica = self.steam.rubricas.get((submissao.rubrica_id, submissao.rubrica_versao))
+        if rubrica is None:
+            raise OperacaoRecusada(
+                f"A rubrica {submissao.rubrica_id} versão {submissao.rubrica_versao} não está mais em data/steam/."
+            )
+        return rubrica
+
+    def submissao(self, submissao_id: int) -> SubmissaoGravada:
+        encontradas = self.repositorio.submissoes_steam(submissao_id)
+        if not encontradas:
+            raise SubmissaoInexistente("Submissão inexistente.")
+        return encontradas[0]
+
+    def avaliar(self, submissao_id: int, avaliador_id: str, niveis: Mapping[str, str]) -> AvaliacaoNova:
+        """Pontua a justificativa com a versão da rubrica fixada na submissão (R13.4).
+
+        Todos os critérios são exigidos de uma vez: avaliação parcial não é registrada, então
+        toda linha gravada já está concluída.
+        """
+        submissao = self.submissao(submissao_id)
+        rubrica = self.rubrica_de(submissao)
+        pontuacoes: list[tuple[str, str, int]] = []
+        for criterio in rubrica.criterios:
+            nivel = niveis.get(criterio.criterio)
+            pontos = None if nivel is None else criterio.pontos(nivel)
+            if nivel is None or pontos is None:
+                raise OperacaoRecusada("Escolha um nível válido em todos os critérios da rubrica.")
+            pontuacoes.append((criterio.criterio, nivel, pontos))
+        avaliacao = AvaliacaoNova(
+            submissao_id,
+            avaliador_id,
+            rubrica.rubrica_versao,
+            tuple(pontuacoes),
+            len(rubrica.criterios),
+            rubrica.pontos_maximos,
+        )
+        try:
+            self.repositorio.registrar_avaliacao(avaliacao)
+        except AvaliacaoRepetida as erro:
+            raise OperacaoRecusada(f"{avaliador_id} já avaliou esta submissão.") from erro
+        return avaliacao
 
     def dica(self, sessao_id: str, nivel: Nivel, explicacao: str = "") -> Dica:
         with self._da_sessao(sessao_id):

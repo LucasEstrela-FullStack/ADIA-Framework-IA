@@ -78,8 +78,8 @@ Formato longo: uma linha por métrica de cada ciclo.
 | Coluna | Tipo | Significado |
 | --- | --- | --- |
 | `sessao_id`, `participante_id`, `condicao`, `ciclo` | | como nos eventos |
-| `etapa` | texto | etapa de onde a métrica vem: `pratica_assistida` ou `desafio_independente` |
-| `metrica` | texto | `acerto_assistido`, `dss`, `tai`, `tt`, `confianca_media`, `brier`, `iic`, `gap`, `vies` |
+| `etapa` | texto | etapa de onde a métrica vem: `linha_de_base`, `pratica_assistida`, `desafio_independente`, `projeto_steam` ou `teste_retencao` |
+| `metrica` | texto | `acerto_assistido`, `dss`, `tai`, `tt`, `confianca_media`, `brier`, `iic`, `gap`, `vies`; no projeto STEAM, `steam_partes` (proporção de partes numéricas certas) e `steam_rubrica` (pontos da rubrica sobre o máximo, média dos avaliadores), sem decisão (DO-46) |
 | `valor` | decimal | vazio quando indisponível |
 | `indisponivel_motivo` | texto | por que não há valor; vazio quando há |
 | `decisao` | texto | `fading`, `onloading`, `escalonar` ou `manter` |
@@ -90,7 +90,8 @@ Formato longo: uma linha por métrica de cada ciclo.
 
 Domínio de `indisponivel_motivo`: `nenhum item praticado corrigido`, `nenhum item do desafio
 corrigido`, `sem respostas no desafio`, `sem item de transferência`, `nenhum item praticado`,
-`acerto assistido zero`, e os motivos do IIC, do gap e do viés, que repetem os de origem.
+`acerto assistido zero`, `aguardando_rubrica` (projeto enviado e ainda não avaliado), e os
+motivos do IIC, do gap e do viés, que repetem os de origem.
 
 ## Ida e volta
 

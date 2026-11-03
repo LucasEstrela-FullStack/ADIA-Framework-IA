@@ -3,6 +3,7 @@ import { api, ErroDaApi, type Estado } from "./api/cliente";
 import { Fim } from "./paginas/Fim";
 import { Inicio } from "./paginas/Inicio";
 import { Item } from "./paginas/Item";
+import { Steam } from "./paginas/Steam";
 
 const CHAVE_DA_SESSAO = "adia.sessao";
 
@@ -47,6 +48,7 @@ export function App() {
 
   if (retomando) return <main className="pagina" aria-busy="true" />;
   if (estado === null) return <Inicio aoComecar={comecar} />;
+  if (estado.steam !== null) return <Steam estado={estado} aoAvancar={setEstado} />;
   if (estado.item === null) {
     return (
       <Fim

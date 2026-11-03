@@ -5,6 +5,8 @@ import type { Estado } from "../api/cliente";
 import { App } from "../App";
 import { Fim } from "../paginas/Fim";
 import { Item } from "../paginas/Item";
+import { Professor } from "../paginas/Professor";
+import { Steam } from "../paginas/Steam";
 
 function estado(mudancas: Partial<Estado> = {}): Estado {
   return {
@@ -18,6 +20,7 @@ function estado(mudancas: Partial<Estado> = {}): Estado {
     restantes: 4,
     dicas_usadas: [],
     item: { id: "alg-eq-101", enunciado: "Resolva 2x + 3 = 11.", tamanho_max: 120 },
+    steam: null,
     retencao: null,
     ...mudancas,
   };
@@ -161,5 +164,112 @@ describe("fim e última parte", () => {
   it("depois da última parte só agradece", () => {
     render(<Fim estado={encerrada({ concluida: true, disponivel: true, abre_em: null })} aoRetomar={() => {}} aoSair={() => {}} />);
     expect(screen.getByRole("heading").textContent).toBe("Pronto, você terminou!");
+  });
+});
+
+describe("projeto STEAM", () => {
+  const projeto = estado({
+    etapa: "projeto_steam",
+    com_ia: false,
+    ciclo: 3,
+    item: null,
+    steam: {
+      titulo: "A cisterna da horta",
+      enunciado: "A cisterna comporta 1800 litros.",
+      partes: [
+        { parte: "retirada", pergunta: "Quanto sai por dia?", unidade: "litros", tamanho_max: 40 },
+        { parte: "metros", pergunta: "Quantos metros?", unidade: "metros", tamanho_max: 40 },
+      ],
+      justificativa: { pergunta: "Explique sua recomendação.", tamanho_max: 2000 },
+    },
+  });
+
+  it("o App abre o projeto quando a sessão chega nele", async () => {
+    localStorage.setItem("adia.sessao", "s1");
+    vi.stubGlobal("fetch", vi.fn(() => respostaJson(projeto)));
+    render(<App />);
+    expect(await screen.findByText("A cisterna da horta")).toBeTruthy();
+    expect(screen.getByText("Sem dicas nesta parte: resolva sozinho.")).toBeTruthy();
+  });
+
+  it("só envia com todas as partes e a justificativa, e manda tudo para a API", async () => {
+    const usuario = userEvent.setup();
+    const fetch = vi.fn((_url: string, _init?: RequestInit) => respostaJson(estado({ item: null })));
+    vi.stubGlobal("fetch", fetch);
+    const aoAvancar = vi.fn();
+    render(<Steam estado={projeto} aoAvancar={aoAvancar} />);
+    const enviar = screen.getByRole("button", { name: "Enviar o projeto" }) as HTMLButtonElement;
+    await usuario.type(screen.getByLabelText(/Quanto sai por dia/), "620");
+    await usuario.type(screen.getByLabelText(/Explique sua recomendação/), "Regar metade.");
+    expect(enviar.disabled).toBe(true);
+    await usuario.type(screen.getByLabelText(/Quantos metros/), "18");
+    await usuario.click(enviar);
+    expect(fetch.mock.calls[0]?.[0]).toBe("/api/sessoes/s1/steam");
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({
+      partes: { retirada: "620", metros: "18" },
+      justificativa: "Regar metade.",
+    });
+    expect(aoAvancar).toHaveBeenCalledOnce();
+  });
+});
+
+describe("correção do professor", () => {
+  const submissao = {
+    id: 7,
+    cenario: "A cisterna da horta",
+    criado_em: "2026-11-03T12:00:00+00:00",
+    avaliadores: [],
+    pergunta: "Explique.",
+    justificativa: "Regar metade dos canteiros.",
+    rubrica: {
+      titulo: "Modelagem",
+      descricao: "d",
+      criterios: [
+        {
+          criterio: "adequacao_do_modelo",
+          descricao: "Traduz a situação.",
+          niveis: [
+            { nivel: "ausente", pontos: 0, descricao: "Não traduz." },
+            { nivel: "exemplar", pontos: 3, descricao: "Traduz bem." },
+          ],
+        },
+      ],
+    },
+  };
+
+  it("chave errada vira mensagem e não abre a lista", async () => {
+    const usuario = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(() => respostaJson({ detail: "Chave do professor incorreta." }, 401)));
+    render(<Professor />);
+    await usuario.type(screen.getByLabelText("Chave do professor"), "errada");
+    await usuario.type(screen.getByLabelText(/código de avaliador/), "prof-01");
+    await usuario.click(screen.getByRole("button", { name: "Entrar" }));
+    expect((await screen.findByRole("alert")).textContent).toBe("Chave do professor incorreta.");
+  });
+
+  it("lista sem participante nem condição, avalia todos os critérios e manda a chave", async () => {
+    const usuario = userEvent.setup();
+    const fetch = vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return respostaJson({ pontos: 3, pontos_maximos: 3 });
+      if (url.endsWith("/submissoes/7")) return respostaJson(submissao);
+      return respostaJson([{ id: 7, cenario: submissao.cenario, criado_em: submissao.criado_em, avaliadores: [] }]);
+    });
+    vi.stubGlobal("fetch", fetch);
+    render(<Professor />);
+    await usuario.type(screen.getByLabelText("Chave do professor"), "segredo");
+    await usuario.type(screen.getByLabelText(/código de avaliador/), "prof-01");
+    await usuario.click(screen.getByRole("button", { name: "Entrar" }));
+    await usuario.click(await screen.findByRole("button", { name: "Avaliar" }));
+    expect(await screen.findByText("Regar metade dos canteiros.")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/P-\d{4}|condição/);
+    const gravar = screen.getByRole("button", { name: "Gravar avaliação como PROF-01" }) as HTMLButtonElement;
+    expect(gravar.disabled).toBe(true);
+    await usuario.click(screen.getByLabelText(/exemplar · 3 pontos/));
+    await usuario.click(gravar);
+    expect((await screen.findByRole("status")).textContent).toBe("Avaliação 7 gravada: 3 de 3 pontos.");
+    const post = fetch.mock.calls.find(([, init]) => init?.method === "POST");
+    expect(post?.[0]).toBe("/api/professor/submissoes/7/avaliacoes");
+    expect((post?.[1]?.headers as Record<string, string>)["X-Chave-Professor"]).toBe("segredo");
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({ avaliador: "PROF-01", niveis: { adequacao_do_modelo: "exemplar" } });
   });
 });

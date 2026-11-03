@@ -63,6 +63,7 @@ def exportar(servico: Servico, destino: Path) -> ResultadoDaExportacao:
                 reconstruida.resumos_sem_ia(),
                 prov,
                 None if registro.retencao_desvio_horas is None else Decimal(registro.retencao_desvio_horas),
+                servico.medidas_steam(sessao_id, reconstruida),
             ),
             encoding="utf-8",
             newline="",

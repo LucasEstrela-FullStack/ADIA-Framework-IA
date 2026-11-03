@@ -331,6 +331,7 @@ def test_os_nove_comandos_do_design_estao_declarados() -> None:
         "excluir-dados",
         "benchmark",
         "participantes",
+        "professor",
         "painel",
         "limiares",
         "backup",

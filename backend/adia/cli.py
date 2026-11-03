@@ -74,8 +74,10 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from adia.caminhos import (
     ARQUIVO_PYTHON,
+    CHAVE_DO_PROFESSOR,
     CONJUNTO_DA_GUARDA,
     DIRETORIO_DE_ITENS,
+    DIRETORIO_STEAM,
     MARCAS_DA_RAIZ,
     encontrar_raiz,
 )
@@ -815,7 +817,8 @@ def _gravar_canonico(textos: Mapping[Path, str]) -> tuple[Path, ...]:
 
 
 #: Os nove comandos da tabela do design §3.18, na ordem em que ela os declara, mais
-#: `participantes`, que o cadastro de pseudônimos da Fase 1 de validade exigiu.
+#: `participantes`, que o cadastro de pseudônimos da Fase 1 de validade exigiu, e `professor`,
+#: que gera a chave das rotas de correção do projeto STEAM.
 #: `itens` e `guarda` são grupos: a invocação completa leva subcomando.
 COMANDOS: Final = (
     "doutor",
@@ -828,6 +831,7 @@ COMANDOS: Final = (
     "excluir-dados",
     "benchmark",
     "participantes",
+    "professor",
     "painel",
     "limiares",
     "backup",
@@ -953,7 +957,12 @@ def exportar(destino: str | None) -> int:
     if raiz is None:
         _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
         return CODIGO_BANCO_INVALIDO
-    servico = Servico(raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(raiz / BANCO_DE_DADOS))
+    servico = Servico(
+        raiz / DIRETORIO_DE_ITENS,
+        ClienteOllama(),
+        Repositorio(raiz / BANCO_DE_DADOS),
+        diretorio_steam=raiz / DIRETORIO_STEAM,
+    )
     resultado = exportar_sessoes(servico, Path(destino) if destino else raiz / "exportacoes")
     linhas = [f"{resultado.exportadas} sessão(ões) exportada(s) em {resultado.diretorio}."]
     if resultado.recusadas:
@@ -974,7 +983,12 @@ def _servico_do_projeto() -> tuple[Path, Servico] | None:
     if raiz is None:
         _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
         return None
-    return raiz, Servico(raiz / DIRETORIO_DE_ITENS, ClienteOllama(), Repositorio(raiz / BANCO_DE_DADOS))
+    return raiz, Servico(
+        raiz / DIRETORIO_DE_ITENS,
+        ClienteOllama(),
+        Repositorio(raiz / BANCO_DE_DADOS),
+        diretorio_steam=raiz / DIRETORIO_STEAM,
+    )
 
 
 def backup(destino: str | None) -> int:
@@ -1051,6 +1065,28 @@ def _repositorio() -> Repositorio | None:
         _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
         return None
     return Repositorio(raiz / BANCO_DE_DADOS)
+
+
+def professor_chave() -> int:
+    """Gera a chave das rotas do professor e a mostra; a anterior deixa de valer na hora."""
+    import secrets
+
+    raiz = encontrar_raiz()
+    if raiz is None:
+        _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
+        return CODIGO_BANCO_INVALIDO
+    arquivo = raiz / CHAVE_DO_PROFESSOR
+    arquivo.parent.mkdir(parents=True, exist_ok=True)
+    chave = secrets.token_urlsafe(12)
+    arquivo.write_text(chave + "\n", encoding="utf-8")
+    _escrever(
+        [
+            f"Chave do professor: {chave}",
+            "Abra http://127.0.0.1:8000/#professor e entre com ela. Não mostre a chave aos estudantes.",
+            f"Guardada em `{CHAVE_DO_PROFESSOR}`, fora do git; gerar outra revoga esta.",
+        ]
+    )
+    return CODIGO_OK
 
 
 def participantes_criar(coorte: str, quantidade: int) -> int:
@@ -1204,6 +1240,10 @@ def construir_analisador() -> argparse.ArgumentParser:
     criar.add_argument("--coorte", required=True, help="nome da coorte (turma ou rodada de coleta)")
     criar.add_argument("--quantidade", type=int, required=True, help="quantos códigos criar")
 
+    professor = comandos.add_parser("professor", help="acesso do professor à correção do projeto STEAM")
+    subprofessor = professor.add_subparsers(dest="subcomando", metavar="subcomando", required=True)
+    subprofessor.add_parser("chave", help="gera a chave da tela de correção e revoga a anterior")
+
     return analisador
 
 
@@ -1255,6 +1295,8 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
     if chave == "participantes criar":
         return participantes_criar(str(espaco.coorte), int(espaco.quantidade))
+    if chave == "professor chave":
+        return professor_chave()
 
     pendente = PENDENTES.get(chave)
     if pendente is None:

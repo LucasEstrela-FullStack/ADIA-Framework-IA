@@ -2,7 +2,7 @@
 
 **Adaptive Decremental Assistance in AI-Supported Learning.** Protótipo de pesquisa que mede quanto um estudante consegue fazer sozinho depois de praticar com IA e, com base nisso, retira o apoio da IA aos poucos.
 
-> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. O painel do pesquisador sai com `uv run adia painel`, e o roteiro de uma coleta numa escola está em [`docs/piloto.md`](docs/piloto.md). Ainda faltam o projeto STEAM e o RAG.
+> Status: protótipo executável (fatia vertical). Roda a linha de base, os três ciclos de prática e desafio, a regra de regulação e as dicas da IA local. As sessões ficam gravadas em SQLite (`data/adia.db`, fora do git), o teste de retenção de 7 dias reabre a mesma sessão e `uv run adia exportar` gera os CSV de pesquisa. Depois do pós-teste vem o projeto STEAM: as partes numéricas são corrigidas na hora e o professor avalia a justificativa por rubrica em `/#professor`. O painel do pesquisador sai com `uv run adia painel`, e o roteiro de uma coleta numa escola está em [`docs/piloto.md`](docs/piloto.md). Ainda falta o RAG.
 
 ## Mapa geral
 
@@ -227,16 +227,16 @@ ADIA-Framework/
   painel e exporta os CSV (`docs/piloto.md`).
 - **Estudante:** entra com o código, percorre o ciclo e, uma semana depois, faz a última
   parte. Não vê a própria condição nem o próprio desempenho (DO-41).
-- **Professor:** a correção por rubrica do projeto STEAM ainda não existe.
+- **Professor:** abre `http://127.0.0.1:8000/#professor` com a chave de `uv run adia professor chave` e avalia a justificativa do projeto STEAM pela rubrica, sem ver participante nem condição (DO-46).
 
 ## Roteiro
 
 - [x] Fase 0, fundação: README, `.gitignore` e documento de decisões
 - [x] Fase 1, núcleo: banco de itens, correção, regra de regulação, métricas e sessão, com testes
 - [x] Fase 2, API: FastAPI, SQLite, registro de eventos e exportação CSV
-- [ ] Fase 3, interface: telas do estudante prontas; falta o projeto STEAM
+- [x] Fase 3, interface: telas do estudante, projeto STEAM e correção por rubrica
 - [ ] Fase 4, IA local: benchmark, sub-agentes e guarda prontos; faltam o roteador e o RAG
-- [ ] Fase 5, painel: limiares versionados e painel do pesquisador prontos; faltam mapa de calor e rubrica
+- [ ] Fase 5, painel: limiares versionados, painel do pesquisador e rubrica prontos; falta o mapa de calor
 - [ ] Fase 6, validação: alunos simulados, análise de poder e DKT
 - [ ] Fase 7, piloto: teste com estudantes e ajustes (roteiro em `docs/piloto.md`)
 

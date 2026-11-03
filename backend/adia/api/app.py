@@ -1,4 +1,4 @@
-"""API local do protótipo: sessões, respostas e dicas. Só no laço local (D11).
+"""API local do protótipo: sessões, respostas, dicas e projeto STEAM. Só no laço local (D11).
 
 Rotas sob ``/api``; o servidor de desenvolvimento do Vite encaminha ``/api`` para a porta
 8000 (``scripts/dev-backend.ps1`` e ``scripts/dev-frontend.ps1``).
@@ -8,29 +8,33 @@ D11 sem autenticação só vale com a API inalcançável de fora da máquina. Du
   ``--host 0.0.0.0`` não exponha dados de estudante à rede da escola;
 - lista de ``Host`` permitidos, contra *DNS rebinding* a partir de uma página aberta no
   navegador do próprio estudante.
+
+As rotas do professor (``/api/professor``) exigem ainda a chave de ``adia professor chave``: o
+estudante usa a mesma máquina, e o laço local sozinho não separa os dois papéis.
 """
 
 from __future__ import annotations
 
+import secrets
 import subprocess
 from functools import cache
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from adia.caminhos import DIRETORIO_DE_ITENS, encontrar_raiz
+from adia.caminhos import CHAVE_DO_PROFESSOR, DIRETORIO_DE_ITENS, DIRETORIO_STEAM, encontrar_raiz
 from adia.ia.cliente_ollama import ClienteOllama
 from adia.ia.subagentes.papeis import LIMITE_DA_EXPLICACAO
 from adia.nucleo.sessao.gestor import OperacaoRecusada, Sessao
-from adia.orquestracao.servico import Servico, SessaoInconsistente, SessaoInexistente
-from adia.persistencia.repositorio import BANCO_DE_DADOS, ParticipanteDesconhecido, Repositorio
-from adia.tipos import Nivel
+from adia.orquestracao.servico import Servico, SessaoInconsistente, SessaoInexistente, SubmissaoInexistente
+from adia.persistencia.repositorio import BANCO_DE_DADOS, ParticipanteDesconhecido, Repositorio, SubmissaoGravada
+from adia.tipos import Etapa, Nivel
 
 ENDERECOS_LOCAIS = frozenset({"127.0.0.1", "::1"})
 HOSTS_PERMITIDOS = ["127.0.0.1", "localhost", "[::1]"]
@@ -63,6 +67,19 @@ class NovaResposta(BaseModel):
     justificativa: str = Field(default="", max_length=2000)
 
 
+_Curto = Annotated[str, Field(max_length=64)]
+
+
+class SubmissaoSteam(BaseModel):
+    partes: dict[_Curto, Annotated[str, Field(max_length=200)]] = Field(max_length=10)
+    justificativa: str = Field(max_length=4000)
+
+
+class NovaAvaliacao(BaseModel):
+    avaliador: str = Field(pattern=r"^PROF-\d{2}$")
+    niveis: dict[_Curto, _Curto] = Field(max_length=20)
+
+
 class PedidoDeDica(BaseModel):
     nivel: Literal[1, 2, 3, 4]
     explicacao: str = Field(default="", max_length=LIMITE_DA_EXPLICACAO)
@@ -90,7 +107,38 @@ def _estado(sessao_id: str, sessao: Sessao, servico: Servico) -> dict[str, objec
         "item": None
         if item is None
         else {"id": item.id, "enunciado": item.enunciado, "tamanho_max": item.tamanho_max_resposta},
+        "steam": _steam(sessao) if sessao.etapa == Etapa.PROJETO_STEAM else None,
         "retencao": _retencao(sessao_id, sessao, servico) if sessao.encerrada else None,
+    }
+
+
+def _steam(sessao: Sessao) -> dict[str, object] | None:
+    """O cenário como o estudante o lê: sem gabarito, tolerância nem rubrica."""
+    cenario = sessao.cenario
+    if cenario is None:
+        return None
+    return {
+        "titulo": cenario.titulo,
+        "enunciado": cenario.enunciado,
+        "partes": [
+            {"parte": p.parte, "pergunta": p.pergunta, "unidade": p.unidade, "tamanho_max": p.tamanho_max_resposta}
+            for p in cenario.partes
+        ],
+        "justificativa": {
+            "pergunta": cenario.pergunta_da_justificativa,
+            "tamanho_max": cenario.tamanho_max_justificativa,
+        },
+    }
+
+
+def _submissao(submissao: SubmissaoGravada, servico: Servico) -> dict[str, object]:
+    """Submissão para o professor: cega para participante e condição."""
+    cenario = next((c for c in servico.steam.cenarios if c.id == submissao.cenario_id), None)
+    return {
+        "id": submissao.id,
+        "cenario": submissao.cenario_id if cenario is None else cenario.titulo,
+        "criado_em": submissao.criado_em,
+        "avaliadores": list(submissao.avaliadores),
     }
 
 
@@ -121,7 +169,7 @@ def _commit(raiz: Path) -> str | None:
 
 
 def _http(erro: Exception) -> HTTPException:
-    if isinstance(erro, SessaoInexistente):
+    if isinstance(erro, SessaoInexistente | SubmissaoInexistente):
         return HTTPException(status_code=404, detail=str(erro))
     if isinstance(erro, ParticipanteDesconhecido):
         return HTTPException(status_code=404, detail="Código não encontrado. Confira o código com o pesquisador.")
@@ -139,7 +187,18 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
         cliente or ClienteOllama(),
         Repositorio(raiz / BANCO_DE_DADOS),
         commit=_commit(raiz),
+        diretorio_steam=raiz / DIRETORIO_STEAM,
     )
+
+    def professor(x_chave_professor: Annotated[str | None, Header()] = None) -> None:
+        # Lida a cada pedido: gerar uma chave nova revoga a anterior sem reiniciar o servidor.
+        arquivo = raiz / CHAVE_DO_PROFESSOR
+        if not arquivo.is_file():
+            raise HTTPException(status_code=503, detail="Chave do professor não gerada: rode adia professor chave.")
+        chave = arquivo.read_text(encoding="utf-8").strip()
+        if not x_chave_professor or not secrets.compare_digest(x_chave_professor.encode(), chave.encode()):
+            raise HTTPException(status_code=401, detail="Chave do professor incorreta.")
+
     app = FastAPI(title="ADIA-CognitiveLoop", version="0.1.0")
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=HOSTS_PERMITIDOS)
     app.add_middleware(SoLacoLocal)
@@ -180,6 +239,51 @@ def criar_app(raiz: Path, cliente: ClienteOllama | None = None) -> FastAPI:
             return _estado(sessao_id, servico.iniciar_retencao(sessao_id), servico)
         except _ERROS_DE_DOMINIO as erro:
             raise _http(erro) from erro
+
+    @app.post("/api/sessoes/{sessao_id}/steam")
+    def submeter_steam(sessao_id: str, corpo: SubmissaoSteam) -> dict[str, object]:
+        try:
+            return _estado(sessao_id, servico.submeter_steam(sessao_id, corpo.partes, corpo.justificativa), servico)
+        except _ERROS_DE_DOMINIO as erro:
+            raise _http(erro) from erro
+
+    @app.get("/api/professor/submissoes", dependencies=[Depends(professor)])
+    def listar_submissoes() -> list[dict[str, object]]:
+        return [_submissao(s, servico) for s in servico.repositorio.submissoes_steam()]
+
+    @app.get("/api/professor/submissoes/{submissao_id}", dependencies=[Depends(professor)])
+    def ler_submissao(submissao_id: int) -> dict[str, object]:
+        try:
+            submissao = servico.submissao(submissao_id)
+            rubrica = servico.rubrica_de(submissao)
+        except _ERROS_DE_DOMINIO as erro:
+            raise _http(erro) from erro
+        cenario = next((c for c in servico.steam.cenarios if c.id == submissao.cenario_id), None)
+        return {
+            **_submissao(submissao, servico),
+            "pergunta": None if cenario is None else cenario.pergunta_da_justificativa,
+            "justificativa": submissao.justificativa,
+            "rubrica": {
+                "titulo": rubrica.titulo,
+                "descricao": rubrica.descricao,
+                "criterios": [
+                    {
+                        "criterio": c.criterio,
+                        "descricao": c.descricao,
+                        "niveis": [{"nivel": n.nivel, "pontos": n.pontos, "descricao": n.descricao} for n in c.niveis],
+                    }
+                    for c in rubrica.criterios
+                ],
+            },
+        }
+
+    @app.post("/api/professor/submissoes/{submissao_id}/avaliacoes", dependencies=[Depends(professor)])
+    def avaliar(submissao_id: int, corpo: NovaAvaliacao) -> dict[str, object]:
+        try:
+            avaliacao = servico.avaliar(submissao_id, corpo.avaliador, corpo.niveis)
+        except _ERROS_DE_DOMINIO as erro:
+            raise _http(erro) from erro
+        return {"pontos": sum(p for _, _, p in avaliacao.pontuacoes), "pontos_maximos": avaliacao.pontos_maximos}
 
     @app.post("/api/sessoes/{sessao_id}/dicas")
     def pedir_dica(sessao_id: str, corpo: PedidoDeDica) -> dict[str, object]:

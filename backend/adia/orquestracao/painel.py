@@ -14,7 +14,7 @@ from typing import Final
 from adia.nucleo.metricas.formatacao import aviso_do_iic, para_tela
 from adia.nucleo.sessao.gestor import FIM, ResumoDoCiclo, Sessao
 from adia.orquestracao.servico import Servico, SessaoInconsistente
-from adia.tipos import Etapa
+from adia.tipos import Etapa, Medida
 
 AVISO_R25_8: Final = (
     "As métricas descrevem desempenho em tarefas deste estudo e não constituem diagnóstico "
@@ -63,6 +63,8 @@ def _situacao(sessao: Sessao) -> str:
         return "linha de base"
     if sessao.etapa == Etapa.TESTE_RETENCAO:
         return "na retenção"
+    if sessao.etapa == Etapa.PROJETO_STEAM:
+        return "no projeto STEAM"
     return f"ciclo {sessao.ciclo}, {str(sessao.etapa).replace('_', ' ')}"
 
 
@@ -85,7 +87,15 @@ def _linha_do_ciclo(ciclo: ResumoDoCiclo, aplicada: bool, aviso: bool) -> str:
     return "<tr>" + "".join(f"<td>{escape(c)}</td>" for c in celulas) + "</tr>"
 
 
-def _bloco(sessao_id: str, criada_em: str, participante: str, condicao: str, limiares: str, sessao: Sessao) -> str:
+def _bloco(
+    sessao_id: str,
+    criada_em: str,
+    participante: str,
+    condicao: str,
+    limiares: str,
+    sessao: Sessao,
+    steam: tuple[Medida, Medida] | None = None,
+) -> str:
     partes = [
         f"<section><h2>{escape(participante)} · condição {escape(condicao)}</h2>",
         f"<p class='sutil'>Sessão {escape(sessao_id)} · criada em {escape(criada_em[:16].replace('T', ' '))} UTC"
@@ -98,6 +108,8 @@ def _bloco(sessao_id: str, criada_em: str, participante: str, condicao: str, lim
             f"<p>{nome}: TAI {para_tela(resumo.acerto)}, confiança {para_tela(resumo.confianca)}, "
             f"Brier {para_tela(resumo.brier)}{escape(extra)}</p>"
         )
+    if steam is not None:
+        partes.append(f"<p>Projeto STEAM: partes numéricas {para_tela(steam[0])}, rubrica {para_tela(steam[1])}</p>")
     avisos: list[str] = []
     linhas: list[str] = []
     for ciclo in sessao.ciclos:
@@ -143,6 +155,7 @@ def gerar_painel(servico: Servico) -> str:
                 condicao,
                 registro.proveniencia.limiares_versao,
                 sessao,
+                servico.medidas_steam(sessao_id, sessao),
             )
         )
     limiares = repositorio.limiares()
@@ -153,6 +166,10 @@ def gerar_painel(servico: Servico) -> str:
         if recusadas
         else ""
     )
+    pendentes = sum(1 for s in repositorio.submissoes_steam() if not s.avaliadores)
+    rubrica = (
+        f"<p class='aviso'>Projetos STEAM aguardando rubrica do professor: {pendentes}.</p>" if pendentes else ""
+    )
     corpo = "".join(blocos) or "<section><p>Nenhuma sessão ainda.</p></section>"
     return (
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
@@ -162,5 +179,5 @@ def gerar_painel(servico: Servico) -> str:
         f" Limiares vigentes: {escape(limiares.versao)} (fading com TAI a partir de"
         f" {para_tela(limiares.independente_fading)}, escalonar com TAI abaixo de"
         f" {para_tela(limiares.independente_escalonar)}).</p>"
-        f"<p class='aviso'>{escape(AVISO_R25_8)}</p>{recusa}{corpo}</main></body></html>\n"
+        f"<p class='aviso'>{escape(AVISO_R25_8)}</p>{recusa}{rubrica}{corpo}</main></body></html>\n"
     )
