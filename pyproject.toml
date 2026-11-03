@@ -131,6 +131,16 @@ disallow_any_decorated = true
 module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# `torch` só existe com `uv sync --extra ml`. Sem ele, o portão padrão ainda verifica
+# `ml/dkt`: o import vira `Any` e a subclasse de `nn.Module` precisa ser admitida.
+module = ["torch", "torch.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["ml.dkt.modelo"]
+disallow_subclassing_any = false
+
 [tool.ruff]
 # O `ruff` não é ferramenta de estilo nesta spec: ele carrega as proibições de API que o
 # `mypy` não expressa (design §6.2) e fecha o laço da pureza do núcleo.

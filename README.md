@@ -153,7 +153,7 @@ Tudo roda localmente, e nenhum dado de estudante vai para serviços externos.
 - Sub-agentes: conceitual, procedural e metacognitivo, como papéis diferentes do mesmo modelo.
 - RAG: as respostas se apoiam no material da disciplina, com embeddings `bge-m3`.
 - Guarda: se a resposta gerada contiver a solução do item, o sistema a descarta e entrega a dica pré-escrita do mesmo nível.
-- Modelagem do aluno (fase 6): Deep Knowledge Tracing com LSTM em PyTorch, treinado primeiro com alunos simulados.
+- Modelagem do aluno (fase 6): Deep Knowledge Tracing com LSTM em PyTorch, treinado primeiro com alunos simulados. Instalação à parte: `uv sync --extra ml`, e depois `uv run --extra ml python -m ml.dkt`.
 
 ```mermaid
 flowchart LR
@@ -237,7 +237,7 @@ ADIA-Framework/
 - [x] Fase 3, interface: telas do estudante, projeto STEAM e correção por rubrica
 - [x] Fase 4, IA local: benchmark, sub-agentes, guarda e RAG; o papel sai do nível, sem classificador (DO-47)
 - [x] Fase 5, painel: limiares versionados, painel do pesquisador, rubrica e mapa de calor de atalhos (DO-48)
-- [ ] Fase 6, validação: alunos simulados e análise de poder prontos (`python -m ml.simulador`, `python -m ml.poder`, DO-49); falta o DKT
+- [x] Fase 6, validação: alunos simulados, análise de poder e DKT (`python -m ml.simulador`, `ml.poder`, `ml.dkt`; DO-49, DO-50)
 - [ ] Fase 7, piloto: teste com estudantes e ajustes (roteiro em `docs/piloto.md`)
 
 ## Referências principais

@@ -1401,6 +1401,32 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   o mesmo padrão. O pós-teste tem poucos itens e satura perto de 1, o que reduz o poder
   de qualquer contraste.
 
+## DO-50 — DKT por item, com a assistência na entrada (provisório)
+
+- **Data:** 2026-11-03
+- **Decisão:** o `Modelo_DKT` (`ml/dkt/`) é uma LSTM de 64 unidades, em CPU. A unidade de
+  conhecimento é o **item**, e não a habilidade. A entrada de cada passo é
+  `item·4 + acerto·2 + assistido`, e a saída tem um logit por item. O modelo:
+  - treina só em `trajetorias.csv` sintético e recusa qualquer linha com `sintetico≠1`;
+  - separa treino e teste por aluno, com 20% dos alunos no teste;
+  - é comparado, pela AUC, com a taxa de acerto de cada item no treino;
+  - é salvo em `ml/modelos/dkt.pt`, fora do Git, e lido de volta com `weights_only=True`.
+- **Justificativa:** o banco atual cobre uma habilidade só (`equacao_linear`), e DKT com uma
+  unidade vira uma média móvel. O item como unidade é a variante usada no artigo original
+  quando há poucas habilidades. A assistência entra na entrada porque acertar com dica não
+  é a mesma evidência que acertar sozinho. A linha de base por item mostra quanto a
+  história do aluno acrescenta à dificuldade do item.
+- **Resultado** com 300 alunos por condição, semente 1 e 30 épocas: AUC no teste de
+  **0,629**, contra **0,604** da linha de base por item. O ganho é pequeno porque o aluno
+  simulado tem uma proficiência só e muito ruído. Isso descreve o simulador, não alunos
+  reais.
+- **Origem:** R28.1 e R28.2; design §3.17; contrato `torch-fora-do-servidor`.
+- **Revalidação:**
+  - voltar à habilidade como unidade quando o banco cobrir mais de uma;
+  - retreinar e remedir a AUC com dados do piloto;
+  - não usar o modelo em decisão experimental, porque a regra de regulação continua sendo
+    a única que decide o teto.
+
 ---
 
 ## Pendências
