@@ -59,7 +59,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "[2/8] mypy --strict -- camada 2: fronteira de tipo, sem Any no lado puro"
-uv run python -m mypy --strict backend/adia backend/tests
+uv run python -m mypy --strict backend/adia backend/tests ml
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""

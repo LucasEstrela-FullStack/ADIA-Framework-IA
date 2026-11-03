@@ -1371,6 +1371,36 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   qualquer análise. O tempo entre respostas inclui pausa e recarregamento de página, então a
   `resposta_relampago` só subestima, e o tempo depois do L4 inclui a leitura do exemplo.
 
+## DO-49 — Simulador de alunos e análise de poder por Monte Carlo (provisório)
+
+- **Data:** 2026-11-03
+- **Decisão:** o `Simulador_de_Alunos` (`ml/simulador/`) dirige a `Sessao` real do núcleo
+  com o banco de itens e os cenários STEAM reais. O aluno tem proficiência latente `θ` e
+  acerta com `σ(θ − 0,5·(dificuldade − 3) + apoio)`. A dica mais alta usada no item dá
+  apoio imediato (L1 0,3 a L4 2,0) e ganho em `θ` depois dele (L1 0,25 a L4 0,04). Há três
+  perfis, autônomo, intermediário e dependente, que diferem em `θ` inicial, na chance de ir
+  direto à dica do teto e no viés de confiança. A retenção desconta 0,3 de `θ`. As saídas
+  (`alunos.csv`, `trajetorias.csv` e `poder.csv` em `exportacoes/sinteticos/`) levam
+  `sintetico=1` em toda linha. A análise de poder (`ml/poder/`) repete o experimento por
+  tamanho de amostra e aplica Welch bilateral com alfa 0,05 ao desfecho por aluno.
+- **Justificativa:** passar pelo `Gestor_de_Sessão` faz a regra de regulação, o fading de C
+  e o onloading agirem de fato sobre os alunos simulados. Assim a simulação testa o
+  protocolo implementado, e não uma cópia dele. Os efeitos de dica são a hipótese do
+  projeto escrita como número: a simulação não pode confirmá-la, só dizer quanta amostra
+  ela exigiria se fosse verdadeira.
+- **Resultado com os valores padrão** (100 réplicas, desfecho pós-teste):
+  - **B − A:** d ≈ 0,07, sem poder 0,8 até 200 por condição.
+  - **C − A:** d ≈ 0,32, poder 0,63 com 100 por condição.
+
+  B se aproxima de A porque a regra baixa o teto de quem já resolve sozinho e mantém L4
+  para o aluno dependente, cujo acerto independente é baixo. Com isso o regulado quase não
+  muda o comportamento de quem mais pede dica.
+- **Origem:** R27 e R28 (validação com dados sintéticos); `docs/protocolo.md`.
+- **Revalidação:** substituir os efeitos supostos pelos do piloto antes de fixar o tamanho
+  de amostra. Revisar a regra para o aluno dependente na condição B, se o piloto mostrar
+  o mesmo padrão. O pós-teste tem poucos itens e satura perto de 1, o que reduz o poder
+  de qualquer contraste.
+
 ---
 
 ## Pendências

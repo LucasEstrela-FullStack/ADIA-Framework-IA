@@ -237,7 +237,7 @@ ADIA-Framework/
 - [x] Fase 3, interface: telas do estudante, projeto STEAM e correção por rubrica
 - [x] Fase 4, IA local: benchmark, sub-agentes, guarda e RAG; o papel sai do nível, sem classificador (DO-47)
 - [x] Fase 5, painel: limiares versionados, painel do pesquisador, rubrica e mapa de calor de atalhos (DO-48)
-- [ ] Fase 6, validação: alunos simulados, análise de poder e DKT
+- [ ] Fase 6, validação: alunos simulados e análise de poder prontos (`python -m ml.simulador`, `python -m ml.poder`, DO-49); falta o DKT
 - [ ] Fase 7, piloto: teste com estudantes e ajustes (roteiro em `docs/piloto.md`)
 
 ## Referências principais

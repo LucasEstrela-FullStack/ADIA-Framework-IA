@@ -29,6 +29,9 @@ dependencies = [
     # serializado com joblib e identificado por hash.
     "scikit-learn>=1.9.1,<2",
     "joblib>=1.6.0,<2",
+    # Teste de Welch da análise de poder em ml/poder (DO-49). Já vinha pelo scikit-learn;
+    # declarar fixa a dependência que o código usa diretamente.
+    "scipy>=1.18.1,<2",
 ]
 
 [project.optional-dependencies]
@@ -86,6 +89,8 @@ addopts = "-q --strict-markers"
 # propriedade à seção que a enuncia, e perder essa ligação custaria mais que a linha
 # abaixo. Sem o padrão `p??_*`, o pytest simplesmente **não coletaria** esses arquivos:
 # a propriedade existiria no repositório, verde por nunca ter rodado.
+# `ml/` mora na raiz, fora do pacote `adia`; os testes do simulador o importam daqui.
+pythonpath = ["."]
 python_files = ["test_*.py", "p[0-9][0-9]_*.py"]
 markers = [
   "ollama: exige o serviço de inferência local em execução; não roda no portão",
@@ -120,6 +125,11 @@ mypy_path = "backend"
 module = ["adia.nucleo.*", "adia.guarda.*"]
 disallow_any_explicit = true
 disallow_any_decorated = true
+
+[[tool.mypy.overrides]]
+# `scipy` não publica `py.typed`; só `ml/poder` o usa, convertendo o resultado para `float`.
+module = ["scipy", "scipy.*"]
+ignore_missing_imports = true
 
 [tool.ruff]
 # O `ruff` não é ferramenta de estilo nesta spec: ele carrega as proibições de API que o
