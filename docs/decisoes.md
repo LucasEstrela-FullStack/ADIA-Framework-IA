@@ -1427,6 +1427,44 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   - não usar o modelo em decisão experimental, porque a regra de regulação continua sendo
     a única que decide o teto.
 
+## DO-51 — Filtro de qualidade da dica gerada e papéis que reescrevem a dica de referência
+
+- **Data:** 2026-11-03
+- **Decisão:** a dica gerada passa por dois filtros. O primeiro é o veredito de vazamento. O
+  segundo é `adia.guarda.qualidade`, determinístico, que descarta a dica fora do padrão do
+  nível:
+  - `curta`: menos de 6 palavras;
+  - `sem_pergunta`: L1 sem `?`;
+  - `operacao_no_conceito`: L2 com passo de resolução, seja no imperativo, com "vamos" ou
+    com "você deve";
+  - `repete_o_enunciado`: 5 palavras seguidas do enunciado, com número;
+  - `escreve_conta`: sinal `=`.
+
+  A dica descartada vira a pré-escrita do mesmo nível, com o motivo
+  `dica gerada fora do padrão do nível: <regra>`. Os papéis passam a pedir uma ou duas
+  frases sem contas e sem copiar o enunciado, e mandam reescrever a dica de referência do
+  item com outras palavras. Os papéis não levam exemplo fixo.
+- **Justificativa:** no ensaio de ponta a ponta, o `qwen2.5:1.5b` entregou dicas como
+  "Isolar x." e "Agora, resolva a equação 4(y - 2) = 28.". Medição em 36 dicas (12 itens
+  praticados, L1 a L3, com o trecho do RAG, como na API), contando as aproveitáveis pelo
+  filtro final:
+
+  | Versão | Aproveitáveis | Vazamentos | Observação |
+  | --- | --- | --- | --- |
+  | Papéis antigos | 18 | 4, todos no L2 | L2 resolvia a conta |
+  | Papéis com exemplo fixo | 28 | — | 9 copiavam o exemplo literalmente |
+  | Versão adotada | 27 | 3 | — |
+
+  Todas as dicas pré-escritas do banco passam no filtro; um teste garante isso, porque a
+  reserva não pode reprovar no critério que a convoca.
+- **Origem:** R6 (níveis de ajuda), R7.2 (guarda); ensaio de 2026-11-03.
+- **Revalidação:**
+  - repetir a medição ao trocar de modelo ou de prompt, porque cada número vem de uma
+    rodada só, com temperatura 0,3;
+  - o filtro julga a forma, não o mérito pedagógico, então a revisão humana de uma amostra
+    continua necessária antes do piloto;
+  - com a taxa atual, um quarto das dicas chega como pré-escrita.
+
 ---
 
 ## Pendências

@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
+from adia.guarda.qualidade import motivo_de_pobreza
 from adia.guarda.veredito import revela_resposta
 from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao
 from adia.ia.rag.indice import Indice, Trecho
@@ -433,6 +434,9 @@ class Servico:
             return Dica(nivel, pre_escrita, "pre-escrita", "IA indisponível")
         if revela_resposta(gerada.texto, item):
             return Dica(nivel, pre_escrita, "pre-escrita", "guarda descartou a dica gerada")
+        pobreza = motivo_de_pobreza(gerada.texto, item, nivel)
+        if pobreza is not None:
+            return Dica(nivel, pre_escrita, "pre-escrita", f"dica gerada fora do padrão do nível: {pobreza}")
         origem_do_trecho = None if trecho is None or self.rag is None else f"{self.rag.versao}#{trecho.id}"
         return Dica(nivel, gerada.texto, "ia", trecho=origem_do_trecho)
 

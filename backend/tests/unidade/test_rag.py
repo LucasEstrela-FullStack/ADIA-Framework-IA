@@ -185,3 +185,18 @@ def test_adia_indexar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: p
     monkeypatch.setattr(ClienteOllama, "falhar_embeddings", True, raising=False)
     assert cli.principal(["indexar"]) == cli.CODIGO_AMBIENTE_INVALIDO
     assert "ollama pull bge-m3" in capsys.readouterr().out
+
+
+class _ClientePobre(_ClienteDuble):
+    def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
+        self.pedidos.append(pedido)
+        return RespostaDoModelo("Isolar x.", 5, 1, "dublê")
+
+
+def test_dica_gerada_fora_do_padrao_vira_a_pre_escrita(tmp_path: Path) -> None:
+    servico, sessao_id = _servico_com_rag(tmp_path, _ClientePobre(), {"a.md": "A balança em equilíbrio. " * 20})
+    item = servico.obter(sessao_id).item_atual
+    assert item is not None
+    dica = servico.dica(sessao_id, Nivel.L3)
+    assert (dica.origem, dica.texto, dica.trecho) == ("pre-escrita", item.dicas[Nivel.L3], None)
+    assert dica.motivo == "dica gerada fora do padrão do nível: curta"
