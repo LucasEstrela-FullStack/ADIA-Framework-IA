@@ -1354,6 +1354,23 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   antes do piloto. O classificador volta a ser decisão quando houver pedido em texto livre
   e um conjunto rotulado.
 
+## DO-48 — Três padrões de atalho cognitivo para o mapa de calor (provisório)
+
+- **Data:** 2026-11-03
+- **Decisão:** o mapa de calor usa três padrões, definidos em `docs/atalhos-cognitivos.md`:
+  `dica_alta_direta` (primeira dica do item em L3 ou L4), `resposta_logo_apos_exemplo`
+  (resposta menos de 20 s depois do L4) e `resposta_relampago` (em etapa sem IA, resposta
+  menos de 5 s depois da anterior). Cada célula é ocorrências sobre oportunidades, por
+  participante e habilidade alvo, no painel do pesquisador.
+- **Justificativa:** a spec exige padrões mensuráveis no log (R19.2), mas não os lista. Os
+  três usam só o que já é gravado: nível e ordem das dicas e os carimbos de tempo. A divisão
+  pelas oportunidades evita que quem respondeu mais itens pareça ter mais atalhos. Os
+  limiares de 20 s e 5 s são pontos de partida, não valores medidos.
+- **Origem:** R19.2, R25.8; glossário (atalho cognitivo).
+- **Revalidação:** revisar padrões e limiares com a distribuição de tempos do piloto antes de
+  qualquer análise. O tempo entre respostas inclui pausa e recarregamento de página, então a
+  `resposta_relampago` só subestima, e o tempo depois do L4 inclui a leitura do exemplo.
+
 ---
 
 ## Pendências

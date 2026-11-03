@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from html import escape
 from typing import Final
 
+from adia.nucleo.metricas.atalhos import PADROES, Contagem, EventoDoLog, contar
 from adia.nucleo.metricas.formatacao import aviso_do_iic, para_tela
 from adia.nucleo.sessao.gestor import FIM, ResumoDoCiclo, Sessao
 from adia.orquestracao.servico import Servico, SessaoInconsistente
@@ -37,6 +38,7 @@ table { border-collapse:collapse; width:100%; font-size:.9rem; font-variant-nume
 th, td { text-align:left; padding:4px 8px; border-bottom:1px solid var(--borda); white-space:nowrap; }
 h1 { margin:0 0 4px; }
 h2 { margin:0 0 8px; font-size:1.05rem; }
+td.calor { text-align:center; }
 """
 
 _COLUNAS: Final = (
@@ -130,11 +132,62 @@ def _bloco(
     return "".join(partes)
 
 
+def _eventos_do_log(linhas: list[dict[str, object]]) -> list[EventoDoLog]:
+    return [
+        EventoDoLog(
+            str(linha["tipo"]),
+            str(linha["etapa"]),
+            str(linha["item_id"]),
+            None if linha["nivel"] is None else int(str(linha["nivel"])),
+            datetime.fromisoformat(str(linha["criado_em"])),
+        )
+        for linha in linhas
+    ]
+
+
+def _mapa_de_calor(linhas: list[tuple[str, dict[tuple[str, str], Contagem]]]) -> str:
+    """Participante por linha, habilidade e padrão por coluna, cor pela taxa (DO-48)."""
+    habilidades = sorted({habilidade for _, contagens in linhas for habilidade, _ in contagens})
+    if not habilidades:
+        return (
+            "<section><h2>Mapa de calor de atalhos cognitivos</h2>"
+            "<p class='sutil'>Sem respostas ainda.</p></section>"
+        )
+    colunas = [(h, p) for h in habilidades for p in PADROES]
+    cabecalho = "<th>Participante</th>" + "".join(
+        f"<th title='{escape(p.condicao)}'>{escape(h)} · {escape(p.nome)}</th>" for h, p in colunas
+    )
+    corpo: list[str] = []
+    for participante, contagens in linhas:
+        celulas = [f"<td>{escape(participante)}</td>"]
+        for h, p in colunas:
+            c = contagens.get((h, p.id))
+            if c is None or c.oportunidades == 0:
+                celulas.append("<td class='calor sutil'>—</td>")
+                continue
+            taxa = round(100 * c.ocorrencias / c.oportunidades)
+            celulas.append(
+                f"<td class='calor' style='background:color-mix(in srgb, var(--aviso) {taxa}%, transparent)'"
+                f" title='{c.ocorrencias} de {c.oportunidades}'>{c.ocorrencias}/{c.oportunidades}</td>"
+            )
+        corpo.append("<tr>" + "".join(celulas) + "</tr>")
+    return (
+        "<section><h2>Mapa de calor de atalhos cognitivos</h2>"
+        "<p class='sutil'>Ocorrências sobre oportunidades de cada padrão; quanto mais forte a cor, maior a"
+        " proporção. Os padrões estão em docs/atalhos-cognitivos.md (DO-48) e descrevem comportamento nas"
+        " tarefas do estudo, não esforço nem capacidade (R25.8).</p>"
+        f"<div class='tabela'><table><thead><tr>{cabecalho}</tr></thead><tbody>{''.join(corpo)}</tbody></table></div>"
+        "</section>"
+    )
+
+
 def gerar_painel(servico: Servico) -> str:
     repositorio = servico.repositorio
     blocos: list[str] = []
     por_condicao: Counter[str] = Counter()
     recusadas: list[str] = []
+    habilidade_de = {item.id: item.habilidade_alvo for item in servico.carga.itens}
+    atalhos: list[tuple[str, dict[tuple[str, str], Contagem]]] = []
     for sessao_id, criada_em in repositorio.sessoes():
         lido = repositorio.ler_sessao(sessao_id)
         if lido is None:
@@ -147,6 +200,10 @@ def gerar_painel(servico: Servico) -> str:
             continue
         condicao = registro.condicao.value
         por_condicao[condicao] += 1
+        eventos = _eventos_do_log(repositorio.eventos_para_exportar(sessao_id))
+        atalhos.append(
+            (registro.participante_id, contar(eventos, datetime.fromisoformat(criada_em), habilidade_de))
+        )
         blocos.append(
             _bloco(
                 sessao_id,
@@ -179,5 +236,6 @@ def gerar_painel(servico: Servico) -> str:
         f" Limiares vigentes: {escape(limiares.versao)} (fading com TAI a partir de"
         f" {para_tela(limiares.independente_fading)}, escalonar com TAI abaixo de"
         f" {para_tela(limiares.independente_escalonar)}).</p>"
-        f"<p class='aviso'>{escape(AVISO_R25_8)}</p>{recusa}{rubrica}{corpo}</main></body></html>\n"
+        f"<p class='aviso'>{escape(AVISO_R25_8)}</p>{recusa}{rubrica}{_mapa_de_calor(atalhos)}"
+        f"{corpo}</main></body></html>\n"
     )
