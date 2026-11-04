@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from adia.api.app import criar_app
-from adia.ia.cliente_ollama import ClienteOllama, FalhaDeGeracao, RespostaDoModelo
+from adia.ia.cliente_ollama import TEMPO_LIMITE_DA_GERACAO, ClienteOllama, FalhaDeGeracao, RespostaDoModelo
 from adia.ia.subagentes.papeis import PAPEIS, pedido
 from adia.nucleo.itens.carregador import CargaConcluida, arquivos_de_itens, carregar
 from adia.persistencia.repositorio import BANCO_DE_DADOS, Repositorio
@@ -67,4 +67,4 @@ def test_ollama_ligado_gera_dica_sem_vazar() -> None:
     item = next(i for i in carga.itens if i.e_praticado)
     resposta = cliente.gerar(PAPEIS[Nivel.L1], pedido(item.enunciado, item.dicas[Nivel.L1], ""))
     assert resposta.texto.strip()
-    assert resposta.latencia_ms < 20_000
+    assert resposta.latencia_ms < TEMPO_LIMITE_DA_GERACAO * 1000

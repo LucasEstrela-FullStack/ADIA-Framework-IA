@@ -36,8 +36,8 @@ PAPEIS: dict[Nivel, str] = {
     "e não escreva \"vamos\", \"precisamos\" nem \"você deve\".",
     Nivel.L3: _BASE
     + " Papel procedural: indique só o primeiro passo, em uma frase completa no imperativo, "
-    "dizendo que operação fazer nos dois lados e por quê, sem fazer a conta e sem dizer o "
-    "que sobra depois. A operação é a inversa da que está no problema: o que está somado "
+    "dizendo uma única operação, com que termo e nos dois lados, sem explicar o motivo, sem "
+    "fazer a conta e sem dizer o que sobra depois. A operação é a inversa da que está no problema: o que está somado "
     "se subtrai, o que está subtraído se soma.",
 }
 
