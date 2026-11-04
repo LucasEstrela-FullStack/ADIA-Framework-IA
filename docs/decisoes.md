@@ -1464,6 +1464,20 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   - o filtro julga a forma, não o mérito pedagógico, então a revisão humana de uma amostra
     continua necessária antes do piloto;
   - com a taxa atual, um quarto das dicas chega como pré-escrita.
+- **Ajuste de 2026-11-04, pela revisão humana** (`docs/relatorios/revisao-dicas-2026-11-03.csv`,
+  58 dicas marcadas serve/não serve):
+  - `curta` passa a exigir menos de 5 palavras, porque "Subtraia 2t dos dois lados." era
+    descarte indevido;
+  - `pergunta_fechada`: L1 terminado em ", certo?", ", né?" e parecidos;
+  - `operacao_no_conceito` também pega "precisamos" e "você" + verbo de operação;
+  - `inverte_a_operacao`: manda subtrair um número que o enunciado só subtrai, ou somar um
+    que ele só soma. A amostra tinha dois "subtraia 2" para `7t - 2 = 40`;
+  - os papéis L1, L2 e L3 pedem o mesmo que essas regras.
+
+  Reaplicado às 56 linhas que a guarda não barrou, o filtro passa a acertar 6 linhas a mais
+  e não erra nenhuma nova. Sobram 8 dicas ruins que passam (português errado, frase sem
+  sentido, conceito trocado), que regra de forma não pega. Sobram também 2 boas barradas
+  por `repete_o_enunciado`, regra que foi mantida porque também barrou 3 ruins.
 
 ---
 

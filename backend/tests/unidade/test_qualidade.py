@@ -47,6 +47,13 @@ def test_toda_dica_pre_escrita_passa_no_filtro(itens: tuple[Item, ...]) -> None:
         (Nivel.L1, "O que a igualdade afirma sobre a incógnita, e o que precisa valer nos dois lados?", None),
         (Nivel.L2, "Soma e multiplicação se desfazem por operações inversas, sem quebrar a igualdade.", None),
         (Nivel.L3, "Subtraia o termo constante dos dois lados para manter a igualdade.", None),
+        # Casos da revisão humana de 2026-11-03 (docs/relatorios/revisao-dicas-2026-11-03.csv).
+        (Nivel.L1, "Você já resolvia equações onde a incógnita estava apenas em um lado, certo?", "pergunta_fechada"),
+        (Nivel.L2, "A igualdade é uma balança, então precisamos adicionar 3 a ambos os lados.", "operacao_no_conceito"),
+        (Nivel.L2, "Na balança, você adiciona o mesmo valor aos dois lados.", "operacao_no_conceito"),
+        (Nivel.L3, "Primeiro, desfaça a soma que acompanha a incógnita. Some 3 dos dois lados.", "inverte_a_operacao"),
+        (Nivel.L3, "Primeiro, desfaça a soma que acompanha a incógnita. Subtraia 3 dos dois lados.", None),
+        (Nivel.L3, "Subtraia 2x dos dois lados.", None),
     ],
 )
 def test_motivos(itens: tuple[Item, ...], nivel: Nivel, texto: str, motivo: str | None) -> None:

@@ -25,18 +25,20 @@ _BASE = (
 
 PAPEIS: dict[Nivel, str] = {
     Nivel.L1: _BASE
-    + " Papel metacognitivo: escreva UMA pergunta, terminada em ponto de interrogação, que "
+    + " Papel metacognitivo: escreva UMA pergunta aberta, que não se responde com sim ou não "
+    "nem termina em \"certo?\", terminada em ponto de interrogação, que "
     "faça o estudante pensar no que já sabe e no que o problema pede. Não explique conceitos, "
     "não dê ordens e não indique passos.",
     Nivel.L2: _BASE
     + " Papel conceitual: diga qual ideia matemática está em jogo (igualdade como balança, "
     "operações inversas, propriedade distributiva) e por que ela importa aqui. Não diga "
     "qual operação fazer, não use verbos no imperativo como subtraia, some, divida ou isole, "
-    "e não escreva \"vamos\".",
+    "e não escreva \"vamos\", \"precisamos\" nem \"você deve\".",
     Nivel.L3: _BASE
     + " Papel procedural: indique só o primeiro passo, em uma frase completa no imperativo, "
     "dizendo que operação fazer nos dois lados e por quê, sem fazer a conta e sem dizer o "
-    "que sobra depois.",
+    "que sobra depois. A operação é a inversa da que está no problema: o que está somado "
+    "se subtrai, o que está subtraído se soma.",
 }
 
 

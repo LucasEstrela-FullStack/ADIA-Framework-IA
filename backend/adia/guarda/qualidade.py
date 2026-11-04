@@ -6,8 +6,11 @@ de mérito pedagógico, para continuarem determinísticas:
 
 - ``curta``: menos de ``PALAVRAS_MINIMAS`` palavras ("Isolar x.") não orienta ninguém;
 - ``sem_pergunta``: L1 é pergunta metacognitiva, e sem ``?`` virou ordem ou explicação;
+- ``pergunta_fechada``: L1 terminado em ", certo?" ou ", né?" pede um sim, não faz pensar;
 - ``operacao_no_conceito``: L2 nomeia o conceito, e verbo de operação no imperativo
   ("subtraia", "vamos dividir", "você deve somar") é passo de resolução, trabalho do L3;
+- ``inverte_a_operacao``: mandar subtrair um número que o enunciado só subtrai (ou somar
+  um que ele só soma) é a operação errada, e leva o estudante ao resultado errado;
 - ``escreve_conta``: sinal ``=`` na dica é equação ou conta escrita, que nenhum nível
   gerado pede, e as dicas pré-escritas não usam;
 - ``repete_o_enunciado``: copiar um trecho do enunciado com número ("resolva a equação
@@ -22,7 +25,8 @@ from typing import Final
 from adia.nucleo.itens.modelo import Item
 from adia.tipos import Nivel
 
-PALAVRAS_MINIMAS: Final = 6
+PALAVRAS_MINIMAS: Final = 5
+"""Com 5, "Subtraia 2t dos dois lados." orienta e passa; "Isolar x." não."""
 JANELA_DO_ENUNCIADO: Final = 5
 """Palavras seguidas do enunciado que, repetidas na dica, contam como cópia."""
 
@@ -32,8 +36,29 @@ _OPERACAO: Final = re.compile(
     # gerúndio soltos ficam de fora, porque a explicação de conceito também os usa.
     r"\b(?:subtraia|some|adicione|divida|multiplique|distribua|mova|isole"
     r"|subtraímos|somamos|adicionamos|dividimos|multiplicamos|distribuímos|movemos|isolamos)\b"
-    rf"|\b(?:vamos|você deve|você precisa|deve-se|precisa-se) {_VERBOS}\w*"
+    rf"|\b(?:vamos|precisamos|você deve|você precisa|deve-se|precisa-se|você) {_VERBOS}\w*"
 )
+_FECHADA: Final = re.compile(r",\s*(?:certo|né|não é|correto|ok)\s*\?")
+_POR_EXTENSO: Final = {
+    "um": "1", "dois": "2", "três": "3", "quatro": "4", "cinco": "5",
+    "seis": "6", "sete": "7", "oito": "8", "nove": "9", "dez": "10",
+}
+_MANDA: Final = re.compile(
+    # Número com letra colada ("subtraia 2t") é termo com a incógnita, não constante.
+    r"\b(subtraia|subtrair|subtraindo|subtraímos|some|somar|somando|somamos"
+    r"|adicione|adicionar|adicionando|adicionamos) (\d+|" + "|".join(_POR_EXTENSO) + r")(?![\w])"
+)
+
+
+def _inverte_a_operacao(texto: str, enunciado: str) -> bool:
+    for verbo, numero in _MANDA.findall(texto.lower()):
+        numero = _POR_EXTENSO.get(numero, numero)
+        somado = re.search(rf"\+\s*{numero}(?![\w])", enunciado)
+        subtraido = re.search(rf"-\s*{numero}(?![\w])", enunciado)
+        subtrai = verbo.startswith("subtra")
+        if (subtrai and subtraido and not somado) or (not subtrai and somado and not subtraido):
+            return True
+    return False
 
 
 def _palavras(texto: str) -> list[str]:
@@ -47,8 +72,12 @@ def motivo_de_pobreza(texto: str, item: Item, nivel: Nivel) -> str | None:
         return "curta"
     if nivel == Nivel.L1 and "?" not in texto:
         return "sem_pergunta"
+    if nivel == Nivel.L1 and _FECHADA.search(texto.lower()):
+        return "pergunta_fechada"
     if nivel == Nivel.L2 and _OPERACAO.search(texto.lower()):
         return "operacao_no_conceito"
+    if _inverte_a_operacao(texto, item.enunciado):
+        return "inverte_a_operacao"
     enunciado = _palavras(item.enunciado)
     corrida = " " + " ".join(palavras) + " "
     for inicio in range(len(enunciado) - JANELA_DO_ENUNCIADO + 1):
