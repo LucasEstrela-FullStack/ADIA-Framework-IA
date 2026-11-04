@@ -31,7 +31,8 @@ PAPEIS: dict[Nivel, str] = {
     "não dê ordens e não indique passos.",
     Nivel.L2: _BASE
     + " Papel conceitual: diga qual ideia matemática está em jogo e por que ela importa aqui. "
-    "Use só a ideia que o pedido traz, sem acrescentar outra e sem mencionar o pedido. Não diga "
+    "Use só a ideia que o pedido traz, sem acrescentar outra e sem mencionar o pedido, e "
+    "conserve as palavras dele: mude só o necessário para falar com o estudante. Não diga "
     "qual operação fazer, não use verbos no imperativo como subtraia, some, divida ou isole, "
     "e não escreva \"vamos\", \"precisamos\" nem \"você deve\".",
     Nivel.L3: _BASE
