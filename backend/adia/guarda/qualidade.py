@@ -6,7 +6,10 @@ de mérito pedagógico, para continuarem determinísticas:
 
 - ``curta``: menos de ``PALAVRAS_MINIMAS`` palavras ("Isolar x.") não orienta ninguém;
 - ``sem_pergunta``: L1 é pergunta metacognitiva, e sem ``?`` virou ordem ou explicação;
-- ``pergunta_fechada``: L1 terminado em ", certo?" ou ", né?" pede um sim, não faz pensar;
+- ``pergunta_fechada``: L1 terminado em ", certo?" ou ", né?", ou que começa por
+  "você" ("Você já resolveu...?"), pede um sim, não faz pensar;
+- ``cita_o_pedido``: "dica de referência" é rótulo do pedido ao modelo, que o estudante
+  não conhece;
 - ``operacao_no_conceito``: L2 nomeia o conceito, e verbo de operação no imperativo
   ("subtraia", "vamos dividir", "você deve somar") é passo de resolução, trabalho do L3;
 - ``inverte_a_operacao``: mandar subtrair um número que o enunciado só subtrai (ou somar
@@ -35,7 +38,7 @@ PALAVRAS_MINIMAS: Final = 5
 JANELA_DO_ENUNCIADO: Final = 5
 """Palavras seguidas do enunciado que, repetidas na dica, contam como cópia."""
 
-_VERBOS: Final = r"(?:subtra|som|adicion|divid|multiplic|distribu|mov|isol)"
+_VERBOS: Final = r"(?:subtra|som|adicion|divid|multiplic|distribu|mov|isol|desfa)"
 _OPERACAO: Final = re.compile(
     # Imperativo, "vamos + infinitivo" e 1ª do plural: passo de resolução. Infinitivo e
     # gerúndio soltos ficam de fora, porque a explicação de conceito também os usa.
@@ -44,7 +47,7 @@ _OPERACAO: Final = re.compile(
     rf"|\b(?:vamos|precisamos|devemos|você deve|você precisa|deve-se|precisa-se|você) {_VERBOS}\w*"
 )
 _EQUACAO: Final = re.compile(r"[\w()]+(?: [-+*/] [\w()]+)* = [\w()]+(?: [-+*/] [\w()]+)*")
-_FECHADA: Final = re.compile(r",\s*(?:certo|né|não é|correto|ok)\s*\?")
+_FECHADA: Final = re.compile(r",\s*(?:certo|né|não é|correto|ok)\s*\?|^você\b[^.:!?]*\?")
 _POR_EXTENSO: Final = {
     "um": "1", "dois": "2", "três": "3", "quatro": "4", "cinco": "5",
     "seis": "6", "sete": "7", "oito": "8", "nove": "9", "dez": "10",
@@ -80,6 +83,8 @@ def motivo_de_pobreza(texto: str, item: Item, nivel: Nivel) -> str | None:
         return "sem_pergunta"
     if nivel == Nivel.L1 and _FECHADA.search(texto.lower()):
         return "pergunta_fechada"
+    if "referência" in texto.lower():
+        return "cita_o_pedido"
     if nivel == Nivel.L2 and _OPERACAO.search(texto.lower()):
         return "operacao_no_conceito"
     if _inverte_a_operacao(texto, item.enunciado):

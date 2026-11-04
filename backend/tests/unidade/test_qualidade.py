@@ -58,6 +58,12 @@ def test_toda_dica_pre_escrita_passa_no_filtro(itens: tuple[Item, ...]) -> None:
         # Revisão de 2026-11-04 (docs/relatorios/revisao-dicas-2026-11-04.csv).
         (Nivel.L2, "É uma balança: devemos subtrair o termo constante dos dois lados.", "operacao_no_conceito"),
         (Nivel.L3, "Comece somando 20 a ambos os lados da equação.", "numero_fora_do_enunciado"),
+        # Rodada 2026-11-04b (docs/relatorios/revisao-dicas-2026-11-04b.csv).
+        (Nivel.L2, "A ideia matemática da dica de referência está em desfazer as operações.", "cita_o_pedido"),
+        (Nivel.L2, "Na ordem contrária, devemos desfazer a multiplicação primeiro.", "operacao_no_conceito"),
+        (Nivel.L1, "Você já resolveu equações onde a incógnita está apenas em um lado?", "pergunta_fechada"),
+        (Nivel.L1, "Antes de começar: você espera uma solução grande ou pequena?", None),
+        (Nivel.L1, "Se você cobrisse os parênteses, que equação sobraria?", None),
     ],
 )
 def test_motivos(itens: tuple[Item, ...], nivel: Nivel, texto: str, motivo: str | None) -> None:

@@ -1492,6 +1492,16 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   que passam vão de 26 para 23. A evolução por rodada fica em
   `ml/cadernos/evolucao-dicas.ipynb`, que lê toda planilha marcada em `docs/relatorios/` e
   reaplica o filtro atual a todas elas, como conjunto de regressão.
+- **Terceiro ajuste de 2026-11-04**, pela rodada `revisao-dicas-2026-11-04b.csv`. A precisão
+  caiu para 61%: o papel L2 dizia "ideia matemática da dica de referência", e o modelo
+  repetiu a expressão em 9 dicas que passaram. As mudanças:
+  - o papel L2 não usa mais a expressão;
+  - nova regra `cita_o_pedido`: barra a dica com "referência";
+  - `pergunta_fechada` também barra a dica que começa por "você" ("Você já resolveu...?");
+  - `operacao_no_conceito` também pega "desfazer".
+
+  Reaplicado à rodada 04b, o filtro deixa passar 7 dicas ruins, contra 18, e não barra
+  nenhuma boa.
 
 ---
 
