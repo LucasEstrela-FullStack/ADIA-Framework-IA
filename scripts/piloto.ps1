@@ -23,7 +23,8 @@ Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot) -ErrorAction Stop
 $env:OTEL_SDK_DISABLED = "true"
 $env:FASTAPI_OTEL_AUTO_CONFIGURE = "false"
 
-$modelos = @("qwen2.5:1.5b", "bge-m3")
+# qwen2.5:1.5b e o recuo de D14, para quando o 3b ficar lento nesta maquina.
+$modelos = @("qwen2.5:3b", "qwen2.5:1.5b", "bge-m3")
 $pid_arquivo = "logs\api.pid"
 
 function Falhar([string]$mensagem) {
@@ -44,6 +45,10 @@ if ($acao -eq "preparar") {
     }
     uv run --frozen adia indexar
     if ($LASTEXITCODE -ne 0) { Falhar "A indexacao do corpus do RAG falhou: veja a mensagem acima." }
+    # Mede os dois modelos nesta maquina: a latencia de D14 foi medida em outra.
+    uv run --frozen --offline adia benchmark
+    if ($LASTEXITCODE -ne 0) { Falhar "O benchmark dos modelos falhou: veja a mensagem acima." }
+    Write-Host "Leia o p95 do qwen2.5:3b no relatorio acima. Passou de 20 s? Siga o recuo de docs\piloto.md."
     Write-Host "Pronto. A partir daqui o piloto roda sem rede."
     exit 0
 }

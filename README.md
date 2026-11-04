@@ -198,7 +198,7 @@ flowchart LR
 Pré-requisitos: Python 3.13 com `uv`, Node.js 24 e [Ollama](https://ollama.com).
 
 ```powershell
-ollama pull qwen2.5:1.5b                                      # uma vez, cerca de 1 GB
+ollama pull qwen2.5:3b                                        # uma vez, cerca de 1,9 GB
 uv run adia participantes criar --coorte piloto --quantidade 30  # códigos P-NNNN para entregar
 .\scripts\dev-backend.ps1                                     # API em http://127.0.0.1:8000
 .\scripts\dev-frontend.ps1                                    # outro terminal; abra http://127.0.0.1:5173

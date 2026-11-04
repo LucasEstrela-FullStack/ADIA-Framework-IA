@@ -20,9 +20,15 @@ repositório.
 .\scripts\piloto.ps1 preparar
 ```
 
-Instala as dependências pelos arquivos de bloqueio, constrói as telas, baixa
-`qwen2.5:1.5b` e `bge-m3` no Ollama e indexa `data/corpus/` para o RAG das dicas. Depois
-disso, nada mais precisa de rede. Se o corpus mudar, rode `uv run adia indexar` de novo e
+Instala as dependências pelos arquivos de bloqueio e constrói as telas. Também baixa no
+Ollama o `qwen2.5:3b`, o `qwen2.5:1.5b` e o `bge-m3`, e indexa `data/corpus/` para o RAG das
+dicas. Depois disso, nada mais precisa de rede.
+
+No fim, o script mede os dois modelos de geração nesta máquina e grava o relatório em
+`docs/relatorios/benchmark-<data>.md`. Leia o p95 do `qwen2.5:3b`. Acima de 20 s, a
+máquina é lenta para ele, e o piloto usa o recuo de D14: troque `MODELO_PADRAO` em
+`backend/adia/ia/cliente_ollama.py` para `"qwen2.5:1.5b"` antes da primeira coleta. Nunca
+troque no meio da coleta, porque o modelo entra na proveniência de cada sessão. Se o corpus mudar, rode `uv run adia indexar` de novo e
 reinicie a API. O corpus inicial precisa da revisão do professor antes da coleta (DO-47).
 
 Cadastre os participantes e guarde o vínculo código ↔ estudante só em `data/identidade/`,

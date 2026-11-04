@@ -19,7 +19,8 @@ from adia.ia.subagentes.papeis import PAPEIS, pedido
 from adia.nucleo.itens.modelo import Item
 from adia.tipos import Nivel
 
-CANDIDATOS_PADRAO = ("llama3.2:1b", "qwen2.5:1.5b", "gemma3:1b")
+CANDIDATOS_PADRAO = ("qwen2.5:3b", "qwen2.5:1.5b")
+"""O modelo de D14 e o recuo dele, os dois que o piloto instala (`docs/piloto.md`)."""
 AMOSTRAS_NO_RELATORIO = 3
 """Itens por modelo cujas dicas L1 a L3 saem por extenso no relatório."""
 

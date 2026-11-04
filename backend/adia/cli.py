@@ -1369,7 +1369,9 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         destino = getattr(espaco, "destino", None)
         modelo = getattr(espaco, "modelo", None)
         return amostra_de_dicas(
-            destino if isinstance(destino, str) else None, int(espaco.por_nivel), modelo if isinstance(modelo, str) else None
+            destino if isinstance(destino, str) else None,
+            int(espaco.por_nivel),
+            modelo if isinstance(modelo, str) else None,
         )
     if chave == "excluir-dados":
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))

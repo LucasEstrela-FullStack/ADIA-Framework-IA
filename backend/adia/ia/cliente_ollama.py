@@ -15,8 +15,12 @@ from time import perf_counter
 
 import httpx
 
-MODELO_PADRAO = "qwen2.5:1.5b"
-"""Modelo de D14 (``docs/decisoes.md``), escolhido pelo benchmark de 2026-10-30."""
+MODELO_PADRAO = "qwen2.5:3b"
+"""Modelo de D14 (``docs/decisoes.md``), trocado pelo benchmark de 2026-11-04. O recuo é o
+``qwen2.5:1.5b``, quando o p95 na máquina do piloto passa de 20 s (``docs/piloto.md``)."""
+
+TEMPO_LIMITE_DA_GERACAO = 30.0
+"""Segundos. Com 20 s, 4 de 62 gerações do 3b estouravam; ao estourar, vem a pré-escrita."""
 
 MODELO_DE_EMBEDDINGS = "bge-m3"
 """Modelo de embeddings do RAG (DO-11)."""
@@ -112,7 +116,7 @@ class ClienteOllama:
         return [[float(x) for x in v] for v in vetores]
 
     def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
-        """Gera até 120 tokens, com tempo limite de 20 s (design §3.12)."""
+        """Gera até 120 tokens, com tempo limite de ``TEMPO_LIMITE_DA_GERACAO`` (design §3.12)."""
         inicio = perf_counter()
         dados = self._transporte(
             "/api/generate",
@@ -122,10 +126,10 @@ class ClienteOllama:
                 "prompt": pedido,
                 "stream": False,
                 # num_gpu 0: o offload Vulkan na GPU integrada desta máquina derruba o
-                # llama-server (0xc0000005); em CPU o modelo de 1,5B responde em ~3 s (D14).
+                # llama-server (0xc0000005); em CPU o 3B responde em ~10 s e o 1,5B em ~3 s (D14).
                 "options": {"num_predict": 120, "temperature": 0.3, "num_gpu": 0},
             },
-            20.0,
+            TEMPO_LIMITE_DA_GERACAO,
         )
         texto = dados.get("response")
         if not isinstance(texto, str) or not texto.strip():

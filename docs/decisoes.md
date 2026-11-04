@@ -604,7 +604,7 @@ rede — garantia estrutural, que não depende de ninguém lembrar de exportar v
 | --- | --- | --- |
 | Distribuições do PyPI | `uv sync`, a partir de `uv.lock` | versões e hashes fixados (R1.6); a coleta não resolve dependência |
 | Pacotes do npm | `npm ci`, a partir de `package-lock.json` | mesma razão |
-| Modelos do Ollama | `ollama pull qwen2.5:1.5b` e `bge-m3`, uma vez | depois disso a inferência é local; o serviço escuta em `127.0.0.1:11434` |
+| Modelos do Ollama | `ollama pull qwen2.5:3b`, `qwen2.5:1.5b` (recuo de D14) e `bge-m3`, uma vez | depois disso a inferência é local; o serviço escuta em `127.0.0.1:11434` |
 | **Binários do navegador dos testes de ponta a ponta** | `npx playwright install chromium`, **uma única vez** | §6.2 fixa Chromium apenas, sem interface. O download é da preparação, não da coleta: depois dele a suíte roda inteiramente offline, contra `vite preview` e a API local. Um único motor respeita o orçamento de disco de §2.5 |
 
 O download dos binários do navegador é o único item desta tabela que o design manda passar
@@ -1151,7 +1151,7 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   183 textos do conjunto mais um texto adversarial de 40 frases com contas, 5 repetições:
   mediana 0,28 ms, p95 0,76 ms, máximo 27 ms, muito abaixo dos 2 s de DO-02.
 
-## D14 — Modelo de geração: `qwen2.5:1.5b` em CPU
+## D14 — Modelo de geração: `qwen2.5:3b` em CPU (até 2026-11-04, `qwen2.5:1.5b`)
 
 - **Data:** 2026-10-30
 - **Decisão:** a API usa `qwen2.5:1.5b` no Ollama local, em CPU (`num_gpu: 0`), com
@@ -1176,8 +1176,26 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   - latência mediana de 7,6 s, p90 de 14 s e máximo de 19,2 s;
   - 4 das 62 gerações estouraram o limite de 20 s e viraram a pré-escrita.
 
-  O `qwen2.5:3b` fica instalado para comparação, e o padrão continua sendo o deste
-  registro. A comparação de rodadas fica em `ml/cadernos/evolucao-dicas.ipynb`.
+  A comparação de rodadas fica em `ml/cadernos/evolucao-dicas.ipynb`.
+- **Troca de 2026-11-04: o padrão passa a ser `qwen2.5:3b`, e o tempo limite da geração
+  sobe de 20 s para 30 s.** O benchmark formal
+  ([relatório](relatorios/benchmark-2026-11-04.md)), com 36 dicas por modelo, mediu:
+
+  | Modelo | Vazamentos | Mediana | p95 |
+  | --- | --- | --- | --- |
+  | `qwen2.5:3b` | 0 | 9,6 s | 15,2 s |
+  | `qwen2.5:1.5b` | 3 | 3,3 s | 5,5 s |
+
+  Somado à medição anterior, o ganho de qualidade cobre a latência. O teto de 30 s cobre a
+  cauda que, com 20 s, virava a pré-escrita. Esperar mais não quebra a tela: o frontend
+  não tem tempo limite próprio e mantém o botão de dica desabilitado enquanto a geração
+  corre. Se a geração estourar o teto, a dica pré-escrita ainda cobre o caso.
+  - **Recuo:** os dois modelos ficam instalados. Se o p95 do `qwen2.5:3b` passar de 20 s na
+    máquina do piloto (`docs/piloto.md`), `MODELO_PADRAO` em
+    `backend/adia/ia/cliente_ollama.py` volta a ser `qwen2.5:1.5b`.
+  - **Proveniência:** cada sessão grava o modelo que gerou suas dicas. A troca precisa
+    acontecer antes da primeira coleta, nunca no meio dela.
+  - Os candidatos padrão do `adia benchmark` passam a ser esses dois modelos.
 
 ## DO-41 — O estudante não vê acerto, desempenho nem condição
 
