@@ -24,17 +24,21 @@ COLUNAS = (
     "filtro",
     "serve (s/n)",
     "comentario",
+    "modelo",
+    "ms",
 )
 
 
 class Gravador(ClienteOllama):
-    """Cliente que guarda o último texto cru devolvido pelo modelo."""
+    """Cliente que guarda o último texto cru devolvido pelo modelo e a latência dele."""
 
     cru: str | None = None
+    ms: int | None = None
 
     def gerar(self, sistema: str, pedido: str) -> RespostaDoModelo:
         resposta = super().gerar(sistema, pedido)
         self.cru = resposta.texto
+        self.ms = resposta.latencia_ms
         return resposta
 
 
@@ -45,7 +49,7 @@ def amostrar(servico: Servico, gravador: Gravador, por_nivel: int = 2) -> list[d
     for item in (i for i in servico.carga.itens if i.e_praticado):
         for nivel in (Nivel.L1, Nivel.L2, Nivel.L3):
             for _ in range(por_nivel):
-                gravador.cru = None
+                gravador.cru = gravador.ms = None
                 dica = servico._gerar(item, nivel, "")
                 cru = " ".join((gravador.cru or "").split())
                 if (item.id, nivel, cru) in vistas:
@@ -62,6 +66,9 @@ def amostrar(servico: Servico, gravador: Gravador, por_nivel: int = 2) -> list[d
                         "filtro": "passou" if dica.origem == "ia" else (dica.motivo or ""),
                         "serve (s/n)": "",
                         "comentario": "",
+                        "modelo": gravador.modelo,
+                        # Vazio quando a geração falhou, inclusive por estourar o tempo limite.
+                        "ms": "" if gravador.ms is None else str(gravador.ms),
                     }
                 )
     return linhas

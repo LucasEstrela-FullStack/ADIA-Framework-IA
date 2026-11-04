@@ -1169,6 +1169,15 @@ pendência em vez de configurar agora um arquivo que ainda não há.
 - **Origem:** R20, R24.6; design §1.5.
 - **Revalidação:** a qualidade foi julgada por 9 amostras por modelo; ler as 36 do relatório
   antes do piloto. Trocar de modelo exige novo benchmark e muda a proveniência das sessões.
+- **Medição de 2026-11-04, sem troca de modelo:** `qwen2.5:3b` (1,9 GB) rodou com papéis e
+  filtro iguais aos da rodada `2026-11-04c` (`revisao-dicas-2026-11-04d-3b.csv`). Resultado:
+  - aproveitamento de 74%, contra 46% a 53% do `qwen2.5:1.5b` nas quatro rodadas;
+  - precisão de 85%, contra 61% a 70%;
+  - latência mediana de 7,6 s, p90 de 14 s e máximo de 19,2 s;
+  - 4 das 62 gerações estouraram o limite de 20 s e viraram a pré-escrita.
+
+  O `qwen2.5:3b` fica instalado para comparação, e o padrão continua sendo o deste
+  registro. A comparação de rodadas fica em `ml/cadernos/evolucao-dicas.ipynb`.
 
 ## DO-41 — O estudante não vê acerto, desempenho nem condição
 

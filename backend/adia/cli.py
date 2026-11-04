@@ -943,10 +943,11 @@ def benchmark(modelos: Sequence[str], diretorio: str | None = None) -> int:
     return CODIGO_OK
 
 
-def amostra_de_dicas(destino: str | None, por_nivel: int) -> int:
+def amostra_de_dicas(destino: str | None, por_nivel: int, modelo: str | None) -> int:
     """Gera dicas pelo caminho real e grava a planilha de revisão humana (DO-51)."""
     import tempfile
 
+    from adia.ia.cliente_ollama import MODELO_PADRAO
     from adia.ia.rag.indice import abrir, arquivos_do_corpus
     from adia.orquestracao.amostra import Gravador, amostrar, gravar
     from adia.orquestracao.benchmark import hoje
@@ -957,7 +958,7 @@ def amostra_de_dicas(destino: str | None, por_nivel: int) -> int:
     if raiz is None:
         _escrever(["Raiz do projeto não encontrada: rode o comando dentro do repositório."])
         return CODIGO_BANCO_INVALIDO
-    gravador = Gravador()
+    gravador = Gravador(modelo or MODELO_PADRAO)
     if not gravador.disponivel():
         _escrever(["O Ollama não respondeu: abra-o e rode de novo."])
         return CODIGO_AMBIENTE_INVALIDO
@@ -1292,6 +1293,7 @@ def construir_analisador() -> argparse.ArgumentParser:
         "--destino", metavar="CAMINHO", default=None, help="padrão: docs/relatorios/revisao-dicas-<data>.csv"
     )
     revisao.add_argument("--por-nivel", type=int, default=2, help="gerações por nível em cada item (padrão: 2)")
+    revisao.add_argument("--modelo", default=None, help="modelo do Ollama (padrão: o de D14)")
 
     comandos.add_parser("painel", help="gera o painel do pesquisador em exportacoes/, fora da API")
     copia = comandos.add_parser("backup", help="copia o banco de dados para data/backups/ ou outro destino")
@@ -1365,7 +1367,10 @@ def principal(argumentos: Sequence[str] | None = None) -> int:
         return benchmark([m.strip() for m in escolhidos if m.strip()])
     if chave == "amostra-de-dicas":
         destino = getattr(espaco, "destino", None)
-        return amostra_de_dicas(destino if isinstance(destino, str) else None, int(espaco.por_nivel))
+        modelo = getattr(espaco, "modelo", None)
+        return amostra_de_dicas(
+            destino if isinstance(destino, str) else None, int(espaco.por_nivel), modelo if isinstance(modelo, str) else None
+        )
     if chave == "excluir-dados":
         return excluir_dados(getattr(espaco, "participante", None), bool(getattr(espaco, "expirados", False)))
     if chave == "participantes criar":

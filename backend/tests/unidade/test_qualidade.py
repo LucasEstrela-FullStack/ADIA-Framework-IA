@@ -94,5 +94,6 @@ def test_amostra_guarda_o_texto_cru_e_tira_as_repetidas(tmp_path: Path) -> None:
         if linha["nivel"] != "L1":
             esperado = ("Isolar x.", "dica gerada fora do padrão do nível: curta")
         assert (linha["gerada_pelo_modelo"], linha["filtro"]) == esperado
+        assert (linha["modelo"], linha["ms"]) == (gravador.modelo, "900")
     gravar(linhas, tmp_path / "amostra.csv")
     assert (tmp_path / "amostra.csv").read_text(encoding="utf-8-sig").startswith("n;item;nivel;")
