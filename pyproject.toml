@@ -60,6 +60,14 @@ dev = [
     # entre menores, e aqui ele carrega proibições de API que o portão depende (§6.4).
     "ruff>=0.17.2,<0.18",
 ]
+# Cadernos de `ml/cadernos/`, que acompanham a evolução da IA rodada a rodada. Fora da
+# sincronização padrão, como o extra `ml`: a API e o portão não dependem deles.
+# Instalação: `uv sync --group notebook`.
+notebook = [
+    "ipykernel>=7.4.0,<8",
+    "matplotlib>=3.11.2,<4",
+    "nbconvert>=7.17.2,<8",
+]
 
 [project.scripts]
 # Ponto de entrada único da CLI (design §3.18). A função `principal` despacha os

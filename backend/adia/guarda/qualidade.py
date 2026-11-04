@@ -11,10 +11,15 @@ de mérito pedagógico, para continuarem determinísticas:
   ("subtraia", "vamos dividir", "você deve somar") é passo de resolução, trabalho do L3;
 - ``inverte_a_operacao``: mandar subtrair um número que o enunciado só subtrai (ou somar
   um que ele só soma) é a operação errada, e leva o estudante ao resultado errado;
+- ``numero_fora_do_enunciado``: número que o enunciado não tem ("comece somando 20" em
+  9m + 2 = 5m + 30) é conta feita pelo modelo ou número inventado, e as duas coisas confundem;
 - ``escreve_conta``: sinal ``=`` na dica é equação ou conta escrita, que nenhum nível
-  gerado pede, e as dicas pré-escritas não usam;
+  gerado pede, e as dicas pré-escritas não usam. A equação do próprio enunciado, citada
+  pelo L2, não conta;
 - ``repete_o_enunciado``: copiar um trecho do enunciado com número ("resolva a equação
-  4(y - 2) = 28") não acrescenta nada ao que o estudante já tem na tela.
+  4(y - 2) = 28") não acrescenta nada ao que o estudante já tem na tela. Não vale no L2:
+  nas revisões de 2026-11-03 e 2026-11-04, o L2 que cita a equação ao explicar o conceito
+  servia, e os descartes indevidos eram quase todos dele.
 """
 
 from __future__ import annotations
@@ -36,8 +41,9 @@ _OPERACAO: Final = re.compile(
     # gerúndio soltos ficam de fora, porque a explicação de conceito também os usa.
     r"\b(?:subtraia|some|adicione|divida|multiplique|distribua|mova|isole"
     r"|subtraímos|somamos|adicionamos|dividimos|multiplicamos|distribuímos|movemos|isolamos)\b"
-    rf"|\b(?:vamos|precisamos|você deve|você precisa|deve-se|precisa-se|você) {_VERBOS}\w*"
+    rf"|\b(?:vamos|precisamos|devemos|você deve|você precisa|deve-se|precisa-se|você) {_VERBOS}\w*"
 )
+_EQUACAO: Final = re.compile(r"[\w()]+(?: [-+*/] [\w()]+)* = [\w()]+(?: [-+*/] [\w()]+)*")
 _FECHADA: Final = re.compile(r",\s*(?:certo|né|não é|correto|ok)\s*\?")
 _POR_EXTENSO: Final = {
     "um": "1", "dois": "2", "três": "3", "quatro": "4", "cinco": "5",
@@ -80,12 +86,17 @@ def motivo_de_pobreza(texto: str, item: Item, nivel: Nivel) -> str | None:
         return "inverte_a_operacao"
     enunciado = _palavras(item.enunciado)
     corrida = " " + " ".join(palavras) + " "
-    for inicio in range(len(enunciado) - JANELA_DO_ENUNCIADO + 1):
+    for inicio in range(len(enunciado) - JANELA_DO_ENUNCIADO + 1) if nivel != Nivel.L2 else ():
         janela = enunciado[inicio : inicio + JANELA_DO_ENUNCIADO]
         # Só conta cópia com número: o contexto em palavras ("o perímetro de um retângulo")
         # a dica pode retomar; a equação ou os dados do problema, não.
         if any(c.isdigit() for c in "".join(janela)) and " " + " ".join(janela) + " " in corrida:
             return "repete_o_enunciado"
-    if "=" in texto:
+    citada = texto
+    for equacao in _EQUACAO.findall(item.enunciado):
+        citada = citada.replace(equacao, "")
+    if "=" in citada:
         return "escreve_conta"
+    if set(re.findall(r"\d+", texto)) - set(re.findall(r"\d+", item.enunciado)):
+        return "numero_fora_do_enunciado"
     return None

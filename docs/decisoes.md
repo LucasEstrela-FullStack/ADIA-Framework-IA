@@ -1478,6 +1478,20 @@ pendência em vez de configurar agora um arquivo que ainda não há.
   e não erra nenhuma nova. Sobram 8 dicas ruins que passam (português errado, frase sem
   sentido, conceito trocado), que regra de forma não pega. Sobram também 2 boas barradas
   por `repete_o_enunciado`, regra que foi mantida porque também barrou 3 ruins.
+- **Segundo ajuste de 2026-11-04**, pela amostra do mesmo dia (`revisao-dicas-2026-11-04.csv`).
+  A precisão ficou em 70%, porque o modelo errou de outros jeitos:
+  - o papel L2 deixa de listar conceitos de exemplo, pois o modelo citava a distributiva
+    onde ela não se aplica. Agora pede a ideia da dica de referência;
+  - `operacao_no_conceito` também pega "devemos";
+  - nova regra `numero_fora_do_enunciado`: a dica com número que o enunciado não tem é
+    descartada;
+  - `repete_o_enunciado` não vale no L2, e `escreve_conta` ignora a equação do enunciado
+    citada. Juntas, as duas regras davam 7 descartes indevidos contra 5 certos.
+
+  Reaplicado às duas rodadas, o filtro barra só 1 dica boa, contra 8 antes. As dicas ruins
+  que passam vão de 26 para 23. A evolução por rodada fica em
+  `ml/cadernos/evolucao-dicas.ipynb`, que lê toda planilha marcada em `docs/relatorios/` e
+  reaplica o filtro atual a todas elas, como conjunto de regressão.
 
 ---
 
