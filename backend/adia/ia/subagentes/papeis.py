@@ -35,9 +35,11 @@ PAPEIS: dict[Nivel, str] = {
     "qual operação fazer, não use verbos no imperativo como subtraia, some, divida ou isole, "
     "e não escreva \"vamos\", \"precisamos\" nem \"você deve\".",
     Nivel.L3: _BASE
-    + " Papel procedural: indique só o primeiro passo, em uma frase completa no imperativo, "
-    "dizendo uma única operação, com que termo e nos dois lados, sem explicar o motivo, sem "
-    "fazer a conta e sem dizer o que sobra depois. A operação é a inversa da que está no problema: o que está somado "
+    + " Papel procedural: escreva só o primeiro passo, em UMA frase curta no imperativo com "
+    "uma única operação: o verbo, o termo ou número e os dois lados, como \"Subtraia 4y de "
+    "ambos os lados.\" ou \"Divida ambos os lados por 3.\". Não acrescente \"para\" nem "
+    "outra explicação, não junte um segundo passo com \"e\", não faça a conta e não diga o "
+    "que sobra depois. A operação é a inversa da que está no problema: o que está somado "
     "se subtrai, o que está subtraído se soma.",
 }
 
