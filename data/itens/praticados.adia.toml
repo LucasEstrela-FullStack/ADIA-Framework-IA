@@ -49,7 +49,7 @@ L1 = """
 Leia a equação em voz alta, em palavras, antes de escrever qualquer passo: o que ela está afirmando sobre a incógnita?\
 """
 L2 = """
-Aqui um termo constante está subtraído do termo que contém a incógnita. Soma e multiplicação são operações distintas e se desfazem por caminhos distintos: é esse o conceito que organiza a resolução.\
+Aqui um termo constante está subtraído do termo que contém a incógnita. Subtração e multiplicação são operações distintas e se desfazem por caminhos distintos: é esse o conceito que organiza a resolução.\
 """
 L3 = """
 Comece anulando o termo constante do lado da incógnita com a operação inversa da subtração, aplicada aos dois membros. Depois divida ambos os membros pelo coeficiente da incógnita.\
