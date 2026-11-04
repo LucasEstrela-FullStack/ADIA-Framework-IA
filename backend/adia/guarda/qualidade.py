@@ -11,7 +11,7 @@ de mérito pedagógico, para continuarem determinísticas:
 - ``pergunta_fechada``: L1 terminado em ", certo?" ou ", né?", ou que começa por
   "você" ("Você já resolveu...?"), pede um sim, não faz pensar;
 - ``cita_o_pedido``: "dica de referência" é rótulo do pedido ao modelo, que o estudante
-  não conhece;
+  não conhece, e "Dica:" no início é o rótulo do campo, não parte da dica;
 - ``operacao_no_conceito``: L2 nomeia o conceito, e verbo de operação no imperativo
   ("subtraia", "vamos dividir", "você deve somar") é passo de resolução, trabalho do L3;
 - ``inverte_a_operacao``: mandar subtrair um número que o enunciado só subtrai (ou somar
@@ -87,7 +87,7 @@ def motivo_de_pobreza(texto: str, item: Item, nivel: Nivel) -> str | None:
         return "sem_pergunta"
     if nivel == Nivel.L1 and _FECHADA.search(texto.lower()):
         return "pergunta_fechada"
-    if "referência" in texto.lower():
+    if "referência" in texto.lower() or texto.lower().lstrip().startswith("dica:"):
         return "cita_o_pedido"
     if nivel == Nivel.L2 and _OPERACAO.search(texto.lower()):
         return "operacao_no_conceito"

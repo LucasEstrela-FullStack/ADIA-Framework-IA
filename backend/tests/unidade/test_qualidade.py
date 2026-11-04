@@ -67,6 +67,8 @@ def test_toda_dica_pre_escrita_passa_no_filtro(itens: tuple[Item, ...]) -> None:
         # Rodada 2026-11-04c (docs/relatorios/revisao-dicas-2026-11-04c.csv).
         (Nivel.L2, "A igualdade é uma balança. Resolver é encontrar o número que, colocado no lugar", "cortada"),
         (Nivel.L2, "Na ordem contrária: primeiro desfazemos a soma, depois a multiplicação.", "operacao_no_conceito"),
+        # Rodada 2026-11-04i (docs/relatorios/revisao-dicas-2026-11-04i-3b.csv).
+        (Nivel.L1, "Dica: O que precisa continuar valendo nos dois lados da equação?", "cita_o_pedido"),
     ],
 )
 def test_motivos(itens: tuple[Item, ...], nivel: Nivel, texto: str, motivo: str | None) -> None:
