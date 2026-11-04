@@ -64,6 +64,9 @@ def test_toda_dica_pre_escrita_passa_no_filtro(itens: tuple[Item, ...]) -> None:
         (Nivel.L1, "Você já resolveu equações onde a incógnita está apenas em um lado?", "pergunta_fechada"),
         (Nivel.L1, "Antes de começar: você espera uma solução grande ou pequena?", None),
         (Nivel.L1, "Se você cobrisse os parênteses, que equação sobraria?", None),
+        # Rodada 2026-11-04c (docs/relatorios/revisao-dicas-2026-11-04c.csv).
+        (Nivel.L2, "A igualdade é uma balança. Resolver é encontrar o número que, colocado no lugar", "cortada"),
+        (Nivel.L2, "Na ordem contrária: primeiro desfazemos a soma, depois a multiplicação.", "operacao_no_conceito"),
     ],
 )
 def test_motivos(itens: tuple[Item, ...], nivel: Nivel, texto: str, motivo: str | None) -> None:

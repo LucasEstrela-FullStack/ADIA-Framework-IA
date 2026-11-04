@@ -5,6 +5,8 @@ padrão vira a dica pré-escrita do mesmo nível, que é revisada. As regras sã
 de mérito pedagógico, para continuarem determinísticas:
 
 - ``curta``: menos de ``PALAVRAS_MINIMAS`` palavras ("Isolar x.") não orienta ninguém;
+- ``cortada``: sem pontuação final, a geração bateu no limite de tokens no meio da frase
+  (acontece quando o modelo copia o trecho do material);
 - ``sem_pergunta``: L1 é pergunta metacognitiva, e sem ``?`` virou ordem ou explicação;
 - ``pergunta_fechada``: L1 terminado em ", certo?" ou ", né?", ou que começa por
   "você" ("Você já resolveu...?"), pede um sim, não faz pensar;
@@ -43,7 +45,7 @@ _OPERACAO: Final = re.compile(
     # Imperativo, "vamos + infinitivo" e 1ª do plural: passo de resolução. Infinitivo e
     # gerúndio soltos ficam de fora, porque a explicação de conceito também os usa.
     r"\b(?:subtraia|some|adicione|divida|multiplique|distribua|mova|isole"
-    r"|subtraímos|somamos|adicionamos|dividimos|multiplicamos|distribuímos|movemos|isolamos)\b"
+    r"|subtraímos|somamos|adicionamos|desfazemos|dividimos|multiplicamos|distribuímos|movemos|isolamos)\b"
     rf"|\b(?:vamos|precisamos|devemos|você deve|você precisa|deve-se|precisa-se|você) {_VERBOS}\w*"
 )
 _EQUACAO: Final = re.compile(r"[\w()]+(?: [-+*/] [\w()]+)* = [\w()]+(?: [-+*/] [\w()]+)*")
@@ -79,6 +81,8 @@ def motivo_de_pobreza(texto: str, item: Item, nivel: Nivel) -> str | None:
     palavras = _palavras(texto)
     if len(palavras) < PALAVRAS_MINIMAS:
         return "curta"
+    if texto.rstrip()[-1:] not in ('.', '?', '!', '"', ')', '»'):
+        return "cortada"
     if nivel == Nivel.L1 and "?" not in texto:
         return "sem_pergunta"
     if nivel == Nivel.L1 and _FECHADA.search(texto.lower()):
